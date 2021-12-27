@@ -1,3 +1,5 @@
 # testing artifacts
 tmp
 tmp.s
+.cpcache
+.nrepl-port
