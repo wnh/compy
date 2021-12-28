@@ -6,16 +6,22 @@
 (def parser
   (insta/parser
    "<expr> = sum-expr
+    <sum-expr> = add | sub | term-expr
+    add  = term-expr <'+'> sum-expr
+    sub  = term-expr <'-'> sum-expr
 
-    <sum-expr> = add | sub | fact-expr
-    add  = fact-expr <'+'> sum-expr
-    sub  = fact-expr <'-'> sum-expr
+    <term-expr> = mul | div | factor-expr
+    mul = factor-expr <'*'> term-expr
+    div = factor-expr <'/'> term-expr
 
-    <fact-expr> = mul | num
-    mul = num <'*'> fact-expr
-
+    <factor-expr> = num | uneg | uplus
+                  | <'('> expr <')'>
+    uneg  = ws <'-'> ws factor-expr
+    uplus = ws <'+'> ws factor-expr
     num = ws #'[0-9]+' ws
     <ws> = <#'\\s*'>"))
+
+(take 2 (insta/parses parser "- - +10"))
 
 (defn bail [token]
   (throw (Exception. "Unexpeccted: " (pr-str token))))
@@ -31,6 +37,17 @@
   ;; [:num "123"]
   (emit "  push $%d" (Integer/parseInt (second node))))
 
+(defn emit-unary [node]
+  ;; [:uneg  "123"]
+  ;; [:uplus "123"]
+  (case (first node)
+    :uneg (do (emit-expr (second node))
+              (emit "  pop %%rax")
+              (emit "  neg %%rax")
+              (emit "  push %%rax"))
+    :uplus (do (emit-expr (second node)))))
+
+
 (declare emit-expr)
 
 (defn emit-binop [node]
@@ -42,15 +59,23 @@
     (case nodetype
       :sub (emit "  sub %%rbx, %%rax")
       :add (emit "  add %%rbx, %%rax")
-      :mul (emit "  mul %%rbx"))
+      :mul (emit "  imul %%rbx, %%rax")
+      :div (do (emit "  xor %%rdx, %%rdx")
+               (emit "  div %%rbx")))
     (emit "  push %%rax")))
 
 (defn emit-expr [node]
   (case (first node); type
     :num (emit-num node)
+
     :add (emit-binop node)
     :sub (emit-binop node)
-    :mul (emit-binop node)))
+    :mul (emit-binop node)
+    :div (emit-binop node)
+
+    :uneg  (emit-unary node)
+    :uplus (emit-unary node)
+    ))
                  
 
 (defn emit-program [ast]
@@ -75,7 +100,9 @@
     (let [compile-out (clojure.java.shell/sh "gcc" "-static" "-o" "tmp" "tmp.s")]
       (if (< 0 (:exit compile-out))
         (throw (Exception. (:err compile-out)))
-        (:exit (clojure.java.shell/sh "./tmp"))))))
+        (let [out (clojure.java.shell/sh "./tmp")]
+          (prn out)
+          (:exit out))))))
 
 
 (deftest  test-compiler-works
@@ -87,7 +114,15 @@
     (is (= 41 (compile-and-run  " 12 + 34 - 5 "))))
   (testing "multiplication"
     (is (=  3 (compile-and-run  " 5*3 -12")))
-    (is (= 47 (compile-and-run  "5+6*7")))))
-
-;(is (= 15 (compile-and-run "5*(9-6)")))
-;(is (=  4 (compile-and-run "(3+5)/2")))
+    (is (= 47 (compile-and-run  "5+6*7"))))
+  (testing "brackets"
+    (is (= 15 (compile-and-run "5*(9-6)")))
+    (is (= 15 (compile-and-run "5*(6*2-9)")))
+    (is (= 51 (compile-and-run "5* 6*2-9 "))))
+  (testing "division"
+    (is (=  4 (compile-and-run "(3+5)/2")))
+    (is (=  4 (compile-and-run "(3+10)/3"))))
+  (testing "unary minus"
+    (is (= 10 (compile-and-run "-10+20")))
+    (is (= 10 (compile-and-run "- -10")))
+    (is (= 10 (compile-and-run "- - +10")))))
