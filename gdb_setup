@@ -1,0 +1,8 @@
+file tmp
+
+break main
+
+define hook-stepi
+disassemble
+info reg
+end
