@@ -5,7 +5,9 @@
 
 (def parser
   (insta/parser
-   "<expr> = eq-expr
+   "
+    stmts = (expr <';'>)+
+    <expr> = eq-expr
 
     <eq-expr> = eq | neq | rel-expr
     eq  = rel-expr <'=='> rel-expr
@@ -109,17 +111,22 @@
     :gte  (emit-rel node)
     :lt   (emit-rel node)
     :lte  (emit-rel node)))
-                 
+
+(defn emit-stmts [node]
+  ;; [:stmts expr ...]
+  (doseq [expr (rest node)]
+    (emit-expr expr)
+    (emit "  pop %%rax")))
+
 
 (defn emit-program [ast]
   (emit "  .globl main")
   (emit "main:")
-  (emit-expr ast)
-  (emit "  pop %%rax")
+  (emit-stmts ast)
   (emit "  ret"))
 
 (defn compiler [src]
-  (let [ast (first (parser src))]
+  (let [ast (parser src)]
     (emit-program ast)))
 
 (defn -main []
@@ -140,39 +147,41 @@
 
 (deftest  test-compiler-works
   (testing "Constants"
-    (is (=  0 (compile-and-run "0")))
-    (is (= 42 (compile-and-run "42"))))
+    (is (=  0 (compile-and-run "0;")))
+    (is (= 42 (compile-and-run "42;"))))
   (testing "addition and subtraction"
-    (is (= 21 (compile-and-run "5+20-4")))
-    (is (= 41 (compile-and-run  " 12 + 34 - 5 "))))
+    (is (= 21 (compile-and-run "5+20-4;")))
+    (is (= 41 (compile-and-run  " 12 + 34 - 5 ;"))))
   (testing "multiplication"
-    (is (=  3 (compile-and-run  " 5*3 -12")))
-    (is (= 47 (compile-and-run  "5+6*7"))))
+    (is (=  3 (compile-and-run  " 5*3 -12;")))
+    (is (= 47 (compile-and-run  "5+6*7;"))))
   (testing "brackets"
-    (is (= 15 (compile-and-run "5*(9-6)")))
-    (is (= 15 (compile-and-run "5*(6*2-9)")))
-    (is (= 51 (compile-and-run "5* 6*2-9 "))))
+    (is (= 15 (compile-and-run "5*(9-6);")))
+    (is (= 15 (compile-and-run "5*(6*2-9);")))
+    (is (= 51 (compile-and-run "5* 6*2-9 ;"))))
   (testing "division"
-    (is (=  4 (compile-and-run "(3+5)/2")))
-    (is (=  4 (compile-and-run "(3+10)/3"))))
+    (is (=  4 (compile-and-run "(3+5)/2;")))
+    (is (=  4 (compile-and-run "(3+10)/3;"))))
   (testing "unary minus"
-    (is (= 10 (compile-and-run "-10+20")))
-    (is (= 10 (compile-and-run "- -10")))
-    (is (= 10 (compile-and-run "- - +10"))))
+    (is (= 10 (compile-and-run "-10+20;")))
+    (is (= 10 (compile-and-run "- -10;")))
+    (is (= 10 (compile-and-run "- - +10;"))))
   (testing "equality"
-    (is (= 0 (compile-and-run "0 ==1")))
-    (is (= 1 (compile-and-run "42==42")))
-    (is (= 1 (compile-and-run "0!=1")))
-    (is (= 0 (compile-and-run "42!=42"))))
+    (is (= 0 (compile-and-run "0 ==1;")))
+    (is (= 1 (compile-and-run "42==42;")))
+    (is (= 1 (compile-and-run "0!=1;")))
+    (is (= 0 (compile-and-run "42!=42;"))))
   (testing "greater than"
-    (is (= 1 (compile-and-run "10>5")))
-    (is (= 0 (compile-and-run "10>50")))
-    (is (= 0 (compile-and-run "10>=50")))
-    (is (= 1 (compile-and-run "10>=10"))))
+    (is (= 1 (compile-and-run "10>5;")))
+    (is (= 0 (compile-and-run "10>50;")))
+    (is (= 0 (compile-and-run "10>=50;")))
+    (is (= 1 (compile-and-run "10>=10;"))))
   (testing "less than"
-    (is (= 1 (compile-and-run "0<1")))
-    (is (= 0 (compile-and-run "1<1")))
-    (is (= 0 (compile-and-run "2<1")))
-    (is (= 1 (compile-and-run "0<=1")))
-    (is (= 1 (compile-and-run "1<=1")))
-    (is (= 0 (compile-and-run "2<=1")))))
+    (is (= 1 (compile-and-run "0<1;")))
+    (is (= 0 (compile-and-run "1<1;")))
+    (is (= 0 (compile-and-run "2<1;")))
+    (is (= 1 (compile-and-run "0<=1;")))
+    (is (= 1 (compile-and-run "1<=1;")))
+    (is (= 0 (compile-and-run "2<=1;"))))
+  (testing "multiple expressions"
+    (is (= 1 (compile-and-run "3;2;1;")))))
