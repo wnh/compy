@@ -5,7 +5,18 @@
 
 (def parser
   (insta/parser
-   "<expr> = sum-expr
+   "<expr> = eq-expr
+
+    <eq-expr> = eq | neq | rel-expr
+    eq  = rel-expr <'=='> rel-expr
+    neq = rel-expr <'!='> rel-expr
+
+    <rel-expr> = gt | gte | lt | lte | sum-expr
+    gt  = sum-expr ws <'>'> ws rel-expr
+    gte = sum-expr ws <'>='> ws rel-expr
+    lt  = sum-expr ws <'<'> ws rel-expr
+    lte = sum-expr ws <'<='> ws rel-expr
+
     <sum-expr> = add | sub | term-expr
     add  = term-expr <'+'> sum-expr
     sub  = term-expr <'-'> sum-expr
@@ -30,8 +41,7 @@
   (apply printf args)
   (println ""))
 
-(defn node-is? [t node]
-  (= (first node) t)) 
+(declare emit-expr)
 
 (defn emit-num [node]
   ;; [:num "123"]
@@ -47,8 +57,25 @@
               (emit "  push %%rax"))
     :uplus (do (emit-expr (second node)))))
 
-
-(declare emit-expr)
+(defn emit-rel [node]
+  (emit-expr (node 1))
+  (emit-expr (node 2))
+  (emit "  pop %%rax")
+  (emit "  pop %%rbx")
+  (case (node 0)
+    :eq (do (emit "  cmp %%rbx, %%rax")
+            (emit "  sete %%al"))
+    :neq (do (emit "  cmp %%rbx, %%rax")
+             (emit "  setne %%al"))
+    :gt (do (emit "  cmp %%rbx, %%rax")
+            (emit "  setl %%al"))
+    :gte (do (emit "  cmp %%rbx, %%rax")
+             (emit "  setle %%al"))
+    :lt (do (emit "  cmp %%rax, %%rbx")
+            (emit "  setl %%al"))
+    :lte (do (emit "  cmp %%rax, %%rbx")
+             (emit "  setle %%al")))
+  (emit "  push %%rax"))
 
 (defn emit-binop [node]
   (let [[nodetype left right] node]
@@ -75,7 +102,13 @@
 
     :uneg  (emit-unary node)
     :uplus (emit-unary node)
-    ))
+
+    :eq   (emit-rel node)
+    :neq  (emit-rel node)
+    :gt   (emit-rel node)
+    :gte  (emit-rel node)
+    :lt   (emit-rel node)
+    :lte  (emit-rel node)))
                  
 
 (defn emit-program [ast]
@@ -125,4 +158,21 @@
   (testing "unary minus"
     (is (= 10 (compile-and-run "-10+20")))
     (is (= 10 (compile-and-run "- -10")))
-    (is (= 10 (compile-and-run "- - +10")))))
+    (is (= 10 (compile-and-run "- - +10"))))
+  (testing "equality"
+    (is (= 0 (compile-and-run "0 ==1")))
+    (is (= 1 (compile-and-run "42==42")))
+    (is (= 1 (compile-and-run "0!=1")))
+    (is (= 0 (compile-and-run "42!=42"))))
+  (testing "greater than"
+    (is (= 1 (compile-and-run "10>5")))
+    (is (= 0 (compile-and-run "10>50")))
+    (is (= 0 (compile-and-run "10>=50")))
+    (is (= 1 (compile-and-run "10>=10"))))
+  (testing "less than"
+    (is (= 1 (compile-and-run "0<1")))
+    (is (= 0 (compile-and-run "1<1")))
+    (is (= 0 (compile-and-run "2<1")))
+    (is (= 1 (compile-and-run "0<=1")))
+    (is (= 1 (compile-and-run "1<=1")))
+    (is (= 0 (compile-and-run "2<=1")))))
