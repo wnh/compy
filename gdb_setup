@@ -4,5 +4,8 @@ break main
 
 define hook-stepi
 disassemble
-info reg
+info reg rax rbx rcx rdx rsi rdi rbp rsp eflags rip
+x/-16x $rbp
 end
+
+run

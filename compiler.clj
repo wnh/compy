@@ -27,16 +27,16 @@
     mul = factor-expr <'*'> term-expr
     div = factor-expr <'/'> term-expr
 
-    <factor-expr> = num | uneg | uplus
+    <factor-expr> = num | uneg | uplus | var-ref
                   | <'('> expr <')'>
-
+    var-ref = ident
     uneg    = ws <'-'> ws factor-expr
     uplus   = ws <'+'> ws factor-expr
     num     = ws #'[0-9]+' ws
     ident   = ws #'[a-zA-Z][a-zA-Z0-9]*' ws
     <ws> = <#'\\s*'>"))
 
-(take 2 (insta/parses parser "a=5;"))
+(take 2 (insta/parses parser "x=12;x;"))
 
 (meta
  (get-in (parser "5+3*12;") [1 2 2]))
@@ -106,8 +106,27 @@
     (emit-expr env (nth node 2))
     (emit env "  pop %%rax")
     (emit env "  lea %d(%%rbp), %%rdi" (- offset))
-    (emit env "  mov %%rax, (%%rdi)")))
+    (emit env "  mov %%rax, (%%rdi)")
+    (emit env "  push $0")))
 
+(defn emit-var-ref [env node]
+  ;;[:var-ref [:ident "a"]]
+  (let [ident (second node)
+        offsets (:local-offsets env)
+        offset (get offsets ident)]
+    (emit env "  lea %d(%%rbp), %%rdi" (- offset))
+    (emit env "  mov (%%rdi), %%rax")
+    (emit env "  push %%rax")))
+
+(comment
+  (parser "x=2;x;")
+  (:local-offsets (build-env (parser "a=2;b=3;a+b;")))
+  (compiler "a=2;b=3;b;")
+  (compile-and-run "a=2;b=3;a+b;")
+  (compiler "a=2;b=3;c=10;a+b+c-3;")
+  (parser "a=2;b=3;a+b;")
+  ;;
+  )
 
 (defn emit-expr [env node]
   (case (first node); type
@@ -128,6 +147,7 @@
     :lt   (emit-rel env node)
     :lte  (emit-rel env node)
     :assign  (emit-assignment env node)
+    :var-ref  (emit-var-ref env node)
     ))
 
 (defn emit-stmts [env node]
@@ -235,4 +255,13 @@
   (testing "variable assignment"
     (is (= 3 (compile-and-run "x=2;3;")))
     (is (= 7 (compile-and-run "x=2;x=3;7;")))
-    (is (= 0 (compile-and-run "x=2;y=3;0;")))))
+    (is (= 0 (compile-and-run "x=2;y=3;0;"))))
+  (testing "variable references"
+    (is (= 3  (compile-and-run "foo=3; foo;")))
+    (is (= 8  (compile-and-run "foo123=3; bar=5; foo123+bar;")))
+    (is (= 8  (compile-and-run "foo123=3; bar=5; foo123+bar;")))
+    (is (= 2  (compile-and-run "x=2;x;")))
+    (is (= 3  (compile-and-run "a=2;b=3;b;")))
+    (is (= 5  (compile-and-run "a=2;b=3;a+b;")))
+    (is (= 12 (compile-and-run "a=2;b=3;c=10;a+b+c-3;")))
+    (is (= 6  (compile-and-run "a=2;b=3;a*b;")))))
