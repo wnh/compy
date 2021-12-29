@@ -7,8 +7,8 @@
   (insta/parser
    "
     stmts = (expr <';'>)+
-    <expr> = eq-expr
-
+    <expr> = eq-expr | assign
+    assign = ident <'='> expr
     <eq-expr> = eq | neq | rel-expr
     eq  = rel-expr <'=='> rel-expr
     neq = rel-expr <'!='> rel-expr
@@ -29,105 +29,152 @@
 
     <factor-expr> = num | uneg | uplus
                   | <'('> expr <')'>
-    uneg  = ws <'-'> ws factor-expr
-    uplus = ws <'+'> ws factor-expr
-    num = ws #'[0-9]+' ws
+
+    uneg    = ws <'-'> ws factor-expr
+    uplus   = ws <'+'> ws factor-expr
+    num     = ws #'[0-9]+' ws
+    ident   = ws #'[a-zA-Z][a-zA-Z0-9]*' ws
     <ws> = <#'\\s*'>"))
 
-(take 2 (insta/parses parser "- - +10"))
+(take 2 (insta/parses parser "a=5;"))
+
+(meta
+ (get-in (parser "5+3*12;") [1 2 2]))
 
 (defn bail [token]
   (throw (Exception. "Unexpeccted: " (pr-str token))))
 
-(defn emit [& args]
+(defn emit [env & args]
   (apply printf args)
   (println ""))
 
 (declare emit-expr)
 
-(defn emit-num [node]
+(defn emit-num [env node]
   ;; [:num "123"]
-  (emit "  push $%d" (Integer/parseInt (second node))))
+  (emit env "  push $%d" (Integer/parseInt (second node))))
 
-(defn emit-unary [node]
+(defn emit-unary [env node]
   ;; [:uneg  "123"]
   ;; [:uplus "123"]
   (case (first node)
-    :uneg (do (emit-expr (second node))
-              (emit "  pop %%rax")
-              (emit "  neg %%rax")
-              (emit "  push %%rax"))
-    :uplus (do (emit-expr (second node)))))
+    :uneg (do (emit-expr env (second node))
+              (emit env "  pop %%rax")
+              (emit env "  neg %%rax")
+              (emit env "  push %%rax"))
+    :uplus (do (emit-expr env (second node)))))
 
-(defn emit-rel [node]
-  (emit-expr (node 1))
-  (emit-expr (node 2))
-  (emit "  pop %%rax")
-  (emit "  pop %%rbx")
+(defn emit-rel [env node]
+  (emit-expr env (node 1))
+  (emit-expr env (node 2))
+  (emit env "  pop %%rax")
+  (emit env "  pop %%rbx")
   (case (node 0)
-    :eq (do (emit "  cmp %%rbx, %%rax")
-            (emit "  sete %%al"))
-    :neq (do (emit "  cmp %%rbx, %%rax")
-             (emit "  setne %%al"))
-    :gt (do (emit "  cmp %%rbx, %%rax")
-            (emit "  setl %%al"))
-    :gte (do (emit "  cmp %%rbx, %%rax")
-             (emit "  setle %%al"))
-    :lt (do (emit "  cmp %%rax, %%rbx")
-            (emit "  setl %%al"))
-    :lte (do (emit "  cmp %%rax, %%rbx")
-             (emit "  setle %%al")))
-  (emit "  push %%rax"))
+    :eq (do (emit env "  cmp %%rbx, %%rax")
+            (emit env "  sete %%al"))
+    :neq (do (emit env "  cmp %%rbx, %%rax")
+             (emit env "  setne %%al"))
+    :gt (do (emit env "  cmp %%rbx, %%rax")
+            (emit env "  setl %%al"))
+    :gte (do (emit env "  cmp %%rbx, %%rax")
+             (emit env "  setle %%al"))
+    :lt (do (emit env "  cmp %%rax, %%rbx")
+            (emit env "  setl %%al"))
+    :lte (do (emit env "  cmp %%rax, %%rbx")
+             (emit env "  setle %%al")))
+  (emit env "  push %%rax"))
 
-(defn emit-binop [node]
+(defn emit-binop [env node]
   (let [[nodetype left right] node]
-    (emit-expr left)
-    (emit-expr right)
-    (emit "  pop %%rbx")
-    (emit "  pop %%rax")
+    (emit-expr env left)
+    (emit-expr env right)
+    (emit env "  pop %%rbx")
+    (emit env "  pop %%rax")
     (case nodetype
-      :sub (emit "  sub %%rbx, %%rax")
-      :add (emit "  add %%rbx, %%rax")
-      :mul (emit "  imul %%rbx, %%rax")
-      :div (do (emit "  xor %%rdx, %%rdx")
-               (emit "  div %%rbx")))
-    (emit "  push %%rax")))
+      :sub (emit env "  sub %%rbx, %%rax")
+      :add (emit env "  add %%rbx, %%rax")
+      :mul (emit env "  imul %%rbx, %%rax")
+      :div (do (emit env "  xor %%rdx, %%rdx")
+               (emit env "  div %%rbx")))
+    (emit env "  push %%rax")))
 
-(defn emit-expr [node]
+(defn emit-assignment [env node]
+  ;;[:assign [:ident "a"] [:num "2"]]
+  (let [ident (second node)
+        offsets (:local-offsets env)
+        offset (get offsets ident)]
+    (emit-expr env (nth node 2))
+    (emit env "  pop %%rax")
+    (emit env "  lea %d(%%rbp), %%rdi" (- offset))
+    (emit env "  mov %%rax, (%%rdi)")))
+
+
+(defn emit-expr [env node]
   (case (first node); type
-    :num (emit-num node)
+    :num (emit-num env node)
 
-    :add (emit-binop node)
-    :sub (emit-binop node)
-    :mul (emit-binop node)
-    :div (emit-binop node)
+    :add (emit-binop env node)
+    :sub (emit-binop env node)
+    :mul (emit-binop env node)
+    :div (emit-binop env node)
 
-    :uneg  (emit-unary node)
-    :uplus (emit-unary node)
+    :uneg  (emit-unary env node)
+    :uplus (emit-unary env node)
 
-    :eq   (emit-rel node)
-    :neq  (emit-rel node)
-    :gt   (emit-rel node)
-    :gte  (emit-rel node)
-    :lt   (emit-rel node)
-    :lte  (emit-rel node)))
+    :eq   (emit-rel env node)
+    :neq  (emit-rel env node)
+    :gt   (emit-rel env node)
+    :gte  (emit-rel env node)
+    :lt   (emit-rel env node)
+    :lte  (emit-rel env node)
+    :assign  (emit-assignment env node)
+    ))
 
-(defn emit-stmts [node]
+(defn emit-stmts [env node]
   ;; [:stmts expr ...]
   (doseq [expr (rest node)]
-    (emit-expr expr)
-    (emit "  pop %%rax")))
+    (emit-expr env expr)
+    (emit env "  pop %%rax")))
 
 
-(defn emit-program [ast]
-  (emit "  .globl main")
-  (emit "main:")
-  (emit-stmts ast)
-  (emit "  ret"))
+(defn emit-program [env]
+  (emit env "  .globl main")
+  (emit env "main:")
+  (emit env "  push %%rbp")
+  (emit env "  mov %%rsp, %%rbp")
+  (emit env "  sub  $%d, %%rsp" (:stack-size env))
+  (emit-stmts env (:statements env))
+  (emit env "  mov %%rbp, %%rsp")
+  (emit env "  pop %%rbp")
+  (emit env "  ret"))
+
+
+(defn find-locals [ast]
+  (case (first ast) 
+    :stmts (apply clojure.set/union
+                  (for [s (rest ast)]
+                    (find-locals s)))
+    :assign #{(-> ast second)}
+    #{}))
+
+
+(defn build-env [stmts]
+  (let [locals (find-locals stmts)
+        stack-size (* 8 (count locals))]
+    {:statements stmts
+     :stack-size stack-size
+     :local-offsets (into {}
+                        (map vector
+                             locals
+                             (range 0 stack-size 8)))}))
+
 
 (defn compiler [src]
   (let [ast (parser src)]
-    (emit-program ast)))
+    (if (insta/failure? ast)
+      (throw (Exception. (pr-str (insta/get-failure ast))))
+      (let [env (build-env ast)]
+        (emit-program env)))))
 
 (defn -main []
   (let [src (first *command-line-args*)]
@@ -184,4 +231,8 @@
     (is (= 1 (compile-and-run "1<=1;")))
     (is (= 0 (compile-and-run "2<=1;"))))
   (testing "multiple expressions"
-    (is (= 1 (compile-and-run "3;2;1;")))))
+    (is (= 1 (compile-and-run "3;2;1;"))))
+  (testing "variable assignment"
+    (is (= 3 (compile-and-run "x=2;3;")))
+    (is (= 7 (compile-and-run "x=2;x=3;7;")))
+    (is (= 0 (compile-and-run "x=2;y=3;0;")))))
