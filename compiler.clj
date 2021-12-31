@@ -7,7 +7,7 @@
   (insta/parser
    "
     block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
-    <stmt> = stmt-single ws <';'>
+    <stmt> = stmt-single? ws <';'>
            | block
     <stmt-single> = return | assign | expr
     assign = ident <'='> expr
@@ -308,4 +308,6 @@
     (is (= 7 (compile-and-run "{ a=12; return 5+2; a*2;}"))))
   (testing "blocks"
     (is (= 3 (compile-and-run "{ {1; {2;} return 3;} }")))
-    (is (= 2 (compile-and-run "{ {1; {return 2;} return 3;} }")))))
+    (is (= 2 (compile-and-run "{ {1; {return 2;} return 3;} }"))))
+  (testing "unused semi-colons work"
+    (is (= 3 (compile-and-run "{ ;;; return 3;}")))))
