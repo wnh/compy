@@ -6,8 +6,10 @@
 (def parser
   (insta/parser
    "
-    stmts = (stmt <';'>)+
-    <stmt>  = return | assign | expr
+    block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
+    <stmt> = stmt-single ws <';'>
+           | block
+    <stmt-single> = return | assign | expr
     assign = ident <'='> expr
     return = ws <'return'> ws expr
     <expr> = eq-expr
@@ -40,14 +42,21 @@
     <keyword> = <'return'>
     <ws> = <#'\\s*'>"))
 
-(comment
-  (take 2 (insta/parses parser " return 12 + 34 - 5 ;"))
-  (parser " return 12 + 34 - 5 ;")
-  (insta/parses parser "return -10+20;")
-  (second (insta/parses parser "return -10+20;"))
 
-  (parser "return - -10;")
-  (parser "return - - +10;"))
+(def ^:dynamic *debugging* false)
+(defn debug [& args]
+  (when *debugging*
+    (binding [*out* *err*]
+      (apply prn args))))
+
+(comment
+  (compile-and-run "{x=2;y=3; return 9;}")
+  (parser "{x=2;y=3; return 0;}")
+  (parser " { return 12 + 34 - 5 ; }")
+  (take 2 (insta/parses parser "{ {1; {2;} return 3;} }"))
+  (parser "{ {1; {2;} return 3;} }")
+  ;; assert 3 '{ {1; {2;} return 3;} }'
+  )
 
 (meta
  (get-in (parser "5+3*12;") [1 2 2]))
@@ -62,10 +71,12 @@
 (declare emit-expr)
 
 (defn emit-num [env node]
+  (debug :emit-num)
   ;; [:num "123"]
   (emit env "  push $%d" (Integer/parseInt (second node))))
 
 (defn emit-unary [env node]
+  (debug :emit-unary)
   ;; [:uneg  "123"]
   ;; [:uplus "123"]
   (case (first node)
@@ -76,6 +87,7 @@
     :uplus (do (emit-expr env (second node)))))
 
 (defn emit-rel [env node]
+  (debug :emit-rel)
   (emit-expr env (node 1))
   (emit-expr env (node 2))
   (emit env "  pop %%rax")
@@ -110,6 +122,7 @@
     (emit env "  push %%rax")))
 
 (defn emit-assignment [env node]
+  (debug :emit-assignment env)
   ;;[:assign [:ident "a"] [:num "2"]]
   (let [ident (second node)
         offsets (:local-offsets env)
@@ -121,6 +134,7 @@
     (emit env "  push $0")))
 
 (defn emit-var-ref [env node]
+  (debug :emit-var-ref)
   ;;[:var-ref [:ident "a"]]
   #_(prn :var-ref env node)
   (let [ident (second node)
@@ -131,6 +145,7 @@
     (emit env "  push %%rax")))
 
 (defn emit-return [env node]
+  (debug :emit-return)
   ;;[:return expr]
   (emit-expr env (second node))
   (emit env "  pop %%rax")
@@ -168,10 +183,11 @@
     :assign  (emit-assignment env node)
     :var-ref  (emit-var-ref env node)
     :return  (emit-return env node)
+    :block  (emit-block env node)
     ))
 
-(defn emit-stmts [env node]
-  ;; [:stmts expr ...]
+(defn emit-block [env node]
+  ;; [:block expr ...]
   (doseq [expr (rest node)]
     (emit-expr env expr)
     (emit env "  pop %%rax")))
@@ -183,7 +199,7 @@
   (emit env "  push %%rbp")
   (emit env "  mov %%rsp, %%rbp")
   (emit env "  sub  $%d, %%rsp" (:stack-size env))
-  (emit-stmts env (:statements env))
+  (emit-block env (:block env))
 
   (emit env "  mov $0, %%rax") ; ensure no fallthough makes our tests work
   (emit env ".L.return:")
@@ -194,7 +210,7 @@
 
 (defn find-locals [ast]
   (case (first ast) 
-    :stmts (apply clojure.set/union
+    :block (apply clojure.set/union
                   (for [s (rest ast)]
                     (find-locals s)))
     :assign #{(-> ast second)}
@@ -204,7 +220,7 @@
 (defn build-env [stmts]
   (let [locals (find-locals stmts)
         stack-size (* 8 (count locals))]
-    {:statements stmts
+    {:block stmts
      :stack-size stack-size
      :local-offsets (into {}
                         (map vector
@@ -237,56 +253,59 @@
 
 (deftest  test-compiler-works
   (testing "Constants"
-    (is (=  0 (compile-and-run "return 0;")))
-    (is (= 42 (compile-and-run "return 42;"))))
+    (is (=  0 (compile-and-run "{return 0;}")))
+    (is (= 42 (compile-and-run "{return 42;}"))))
   (testing "addition and subtraction"
-    (is (= 21 (compile-and-run "return 5+20-4;")))
-    (is (= 41 (compile-and-run  " return 12 + 34 - 5 ;"))))
+    (is (= 21 (compile-and-run "{return 5+20-4;}")))
+    (is (= 41 (compile-and-run  " { return 12 + 34 - 5 ; }"))))
   (testing "multiplication"
-    (is (=  3 (compile-and-run  " return 5*3 -12;")))
-    (is (= 47 (compile-and-run  " return 5+6*7;"))))
+    (is (=  3 (compile-and-run  " {return 5*3 -12;  }")))
+    (is (= 47 (compile-and-run  " {return 5+6*7;}"))))
   (testing "brackets"
-    (is (= 15 (compile-and-run "return 5*(9-6);")))
-    (is (= 15 (compile-and-run "return 5*(6*2-9);")))
-    (is (= 51 (compile-and-run "return 5* 6*2-9 ;"))))
+    (is (= 15 (compile-and-run "{return 5*(9-6);}")))
+    (is (= 15 (compile-and-run "{return 5*(6*2-9);}")))
+    (is (= 51 (compile-and-run "{return 5* 6*2-9 ;}"))))
   (testing "division"
-    (is (=  4 (compile-and-run "return (3+5)/2;")))
-    (is (=  4 (compile-and-run "return (3+10)/3;"))))
+    (is (=  4 (compile-and-run "{return (3+5)/2;}")))
+    (is (=  4 (compile-and-run "{return (3+10)/3;}"))))
   (testing "unary minus"
-    (is (= 10 (compile-and-run "return -10+20;")))
-    (is (= 10 (compile-and-run "return - -10;")))
-    (is (= 10 (compile-and-run "return - - +10;"))))
+    (is (= 10 (compile-and-run "{return -10+20;}")))
+    (is (= 10 (compile-and-run "{return - -10;}")))
+    (is (= 10 (compile-and-run "{return - - +10;}"))))
   (testing "equality"
-    (is (= 0 (compile-and-run "return 0 ==1;")))
-    (is (= 1 (compile-and-run "return 42==42;")))
-    (is (= 1 (compile-and-run "return 0!=1;")))
-    (is (= 0 (compile-and-run "return 42!=42;"))))
+    (is (= 0 (compile-and-run "{return 0 ==1;}")))
+    (is (= 1 (compile-and-run "{return 42==42;}")))
+    (is (= 1 (compile-and-run "{return 0!=1;}")))
+    (is (= 0 (compile-and-run "{return 42!=42;}"))))
   (testing "greater than"
-    (is (= 1 (compile-and-run "return 10>5;")))
-    (is (= 0 (compile-and-run "return 10>50;")))
-    (is (= 0 (compile-and-run "return 10>=50;")))
-    (is (= 1 (compile-and-run "return 10>=10;"))))
+    (is (= 1 (compile-and-run "{return 10>5;}")))
+    (is (= 0 (compile-and-run "{return 10>50;}")))
+    (is (= 0 (compile-and-run "{return 10>=50;}")))
+    (is (= 1 (compile-and-run "{return 10>=10;}"))))
   (testing "less than"
-    (is (= 1 (compile-and-run "return 0<1;")))
-    (is (= 0 (compile-and-run "return 1<1;")))
-    (is (= 0 (compile-and-run "return 2<1;")))
-    (is (= 1 (compile-and-run "return 0<=1;")))
-    (is (= 1 (compile-and-run "return 1<=1;")))
-    (is (= 0 (compile-and-run "return 2<=1;"))))
+    (is (= 1 (compile-and-run "{return 0<1;}")))
+    (is (= 0 (compile-and-run "{return 1<1;}")))
+    (is (= 0 (compile-and-run "{return 2<1;}")))
+    (is (= 1 (compile-and-run "{return 0<=1;}")))
+    (is (= 1 (compile-and-run "{return 1<=1;}")))
+    (is (= 0 (compile-and-run "{return 2<=1;}"))))
   (testing "multiple expressions"
-    (is (= 1 (compile-and-run "3;2; return 1;"))))
+    (is (= 1 (compile-and-run "{3;2; return 1;}"))))
   (testing "variable assignment"
-    (is (= 3 (compile-and-run "x=2; return 3;")))
-    (is (= 7 (compile-and-run "x=2;x=3; return 7;")))
-    (is (= 0 (compile-and-run "x=2;y=3; return 0;"))))
+    (is (= 3 (compile-and-run "{x=2; return 3;}")))
+    (is (= 7 (compile-and-run "{x=2;x=3; return 7;}")))
+    (is (= 0 (compile-and-run "{x=2;y=3; return 0;}"))))
   (testing "variable references"
-    (is (= 3  (compile-and-run "foo=3; return foo;")))
-    (is (= 8  (compile-and-run "foo123=3; bar=5; return foo123+bar;")))
-    (is (= 2  (compile-and-run "x=2; return x;")))
-    (is (= 3  (compile-and-run "a=2;b=3; return b;")))
-    (is (= 5  (compile-and-run "a=2;b=3; return a+b;")))
-    (is (= 12 (compile-and-run "a=2;b=3;c=10; return a+b+c-3;")))
-    (is (= 6  (compile-and-run "a=2;b=3; return a*b;"))))
+    (is (= 3  (compile-and-run "{foo=3; return foo;}")))
+    (is (= 8  (compile-and-run "{foo123=3; bar=5; return foo123+bar;}")))
+    (is (= 2  (compile-and-run "{x=2; return x;}")))
+    (is (= 3  (compile-and-run "{a=2;b=3; return b;}")))
+    (is (= 5  (compile-and-run "{a=2;b=3; return a+b;}")))
+    (is (= 12 (compile-and-run "{a=2;b=3;c=10; return a+b+c-3;}")))
+    (is (= 6  (compile-and-run "{a=2;b=3; return a*b;}"))))
   (testing "early return"
-    (is (= 1 (compile-and-run "return 1; 2;")))
-    (is (= 7 (compile-and-run "a=12; return 5+2; a*2;")))))
+    (is (= 1 (compile-and-run "{ return 1; 2; }")))
+    (is (= 7 (compile-and-run "{ a=12; return 5+2; a*2;}"))))
+  (testing "blocks"
+    (is (= 3 (compile-and-run "{ {1; {2;} return 3;} }")))
+    (is (= 2 (compile-and-run "{ {1; {return 2;} return 3;} }")))))
