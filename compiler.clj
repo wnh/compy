@@ -6,9 +6,12 @@
 (def parser
   (insta/parser
    "
-    stmts = (expr <';'>)+
-    <expr> = eq-expr | assign
+    stmts = (stmt <';'>)+
+    <stmt>  = return | assign | expr
     assign = ident <'='> expr
+    return = ws <'return'> ws expr
+    <expr> = eq-expr
+
     <eq-expr> = eq | neq | rel-expr
     eq  = rel-expr <'=='> rel-expr
     neq = rel-expr <'!='> rel-expr
@@ -33,10 +36,18 @@
     uneg    = ws <'-'> ws factor-expr
     uplus   = ws <'+'> ws factor-expr
     num     = ws #'[0-9]+' ws
-    ident   = ws #'[a-zA-Z][a-zA-Z0-9]*' ws
+    ident   = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
+    <keyword> = <'return'>
     <ws> = <#'\\s*'>"))
 
-(take 2 (insta/parses parser "x=12;x;"))
+(comment
+  (take 2 (insta/parses parser " return 12 + 34 - 5 ;"))
+  (parser " return 12 + 34 - 5 ;")
+  (insta/parses parser "return -10+20;")
+  (second (insta/parses parser "return -10+20;"))
+
+  (parser "return - -10;")
+  (parser "return - - +10;"))
 
 (meta
  (get-in (parser "5+3*12;") [1 2 2]))
@@ -111,6 +122,7 @@
 
 (defn emit-var-ref [env node]
   ;;[:var-ref [:ident "a"]]
+  #_(prn :var-ref env node)
   (let [ident (second node)
         offsets (:local-offsets env)
         offset (get offsets ident)]
@@ -118,9 +130,16 @@
     (emit env "  mov (%%rdi), %%rax")
     (emit env "  push %%rax")))
 
+(defn emit-return [env node]
+  ;;[:return expr]
+  (emit-expr env (second node))
+  (emit env "  pop %%rax")
+  (emit env "  jmp .L.return"))
+
 (comment
-  (parser "x=2;x;")
-  (:local-offsets (build-env (parser "a=2;b=3;a+b;")))
+  (parser "x=2;return x;13;")
+  (compile-and-run "x=5;x+1;13;")
+  (:local-offsets (build-env (parser "x=2;return x;13;")))
   (compiler "a=2;b=3;b;")
   (compile-and-run "a=2;b=3;a+b;")
   (compiler "a=2;b=3;c=10;a+b+c-3;")
@@ -148,6 +167,7 @@
     :lte  (emit-rel env node)
     :assign  (emit-assignment env node)
     :var-ref  (emit-var-ref env node)
+    :return  (emit-return env node)
     ))
 
 (defn emit-stmts [env node]
@@ -164,6 +184,9 @@
   (emit env "  mov %%rsp, %%rbp")
   (emit env "  sub  $%d, %%rsp" (:stack-size env))
   (emit-stmts env (:statements env))
+
+  (emit env "  mov $0, %%rax") ; ensure no fallthough makes our tests work
+  (emit env ".L.return:")
   (emit env "  mov %%rbp, %%rsp")
   (emit env "  pop %%rbp")
   (emit env "  ret"))
@@ -214,54 +237,56 @@
 
 (deftest  test-compiler-works
   (testing "Constants"
-    (is (=  0 (compile-and-run "0;")))
-    (is (= 42 (compile-and-run "42;"))))
+    (is (=  0 (compile-and-run "return 0;")))
+    (is (= 42 (compile-and-run "return 42;"))))
   (testing "addition and subtraction"
-    (is (= 21 (compile-and-run "5+20-4;")))
-    (is (= 41 (compile-and-run  " 12 + 34 - 5 ;"))))
+    (is (= 21 (compile-and-run "return 5+20-4;")))
+    (is (= 41 (compile-and-run  " return 12 + 34 - 5 ;"))))
   (testing "multiplication"
-    (is (=  3 (compile-and-run  " 5*3 -12;")))
-    (is (= 47 (compile-and-run  "5+6*7;"))))
+    (is (=  3 (compile-and-run  " return 5*3 -12;")))
+    (is (= 47 (compile-and-run  " return 5+6*7;"))))
   (testing "brackets"
-    (is (= 15 (compile-and-run "5*(9-6);")))
-    (is (= 15 (compile-and-run "5*(6*2-9);")))
-    (is (= 51 (compile-and-run "5* 6*2-9 ;"))))
+    (is (= 15 (compile-and-run "return 5*(9-6);")))
+    (is (= 15 (compile-and-run "return 5*(6*2-9);")))
+    (is (= 51 (compile-and-run "return 5* 6*2-9 ;"))))
   (testing "division"
-    (is (=  4 (compile-and-run "(3+5)/2;")))
-    (is (=  4 (compile-and-run "(3+10)/3;"))))
+    (is (=  4 (compile-and-run "return (3+5)/2;")))
+    (is (=  4 (compile-and-run "return (3+10)/3;"))))
   (testing "unary minus"
-    (is (= 10 (compile-and-run "-10+20;")))
-    (is (= 10 (compile-and-run "- -10;")))
-    (is (= 10 (compile-and-run "- - +10;"))))
+    (is (= 10 (compile-and-run "return -10+20;")))
+    (is (= 10 (compile-and-run "return - -10;")))
+    (is (= 10 (compile-and-run "return - - +10;"))))
   (testing "equality"
-    (is (= 0 (compile-and-run "0 ==1;")))
-    (is (= 1 (compile-and-run "42==42;")))
-    (is (= 1 (compile-and-run "0!=1;")))
-    (is (= 0 (compile-and-run "42!=42;"))))
+    (is (= 0 (compile-and-run "return 0 ==1;")))
+    (is (= 1 (compile-and-run "return 42==42;")))
+    (is (= 1 (compile-and-run "return 0!=1;")))
+    (is (= 0 (compile-and-run "return 42!=42;"))))
   (testing "greater than"
-    (is (= 1 (compile-and-run "10>5;")))
-    (is (= 0 (compile-and-run "10>50;")))
-    (is (= 0 (compile-and-run "10>=50;")))
-    (is (= 1 (compile-and-run "10>=10;"))))
+    (is (= 1 (compile-and-run "return 10>5;")))
+    (is (= 0 (compile-and-run "return 10>50;")))
+    (is (= 0 (compile-and-run "return 10>=50;")))
+    (is (= 1 (compile-and-run "return 10>=10;"))))
   (testing "less than"
-    (is (= 1 (compile-and-run "0<1;")))
-    (is (= 0 (compile-and-run "1<1;")))
-    (is (= 0 (compile-and-run "2<1;")))
-    (is (= 1 (compile-and-run "0<=1;")))
-    (is (= 1 (compile-and-run "1<=1;")))
-    (is (= 0 (compile-and-run "2<=1;"))))
+    (is (= 1 (compile-and-run "return 0<1;")))
+    (is (= 0 (compile-and-run "return 1<1;")))
+    (is (= 0 (compile-and-run "return 2<1;")))
+    (is (= 1 (compile-and-run "return 0<=1;")))
+    (is (= 1 (compile-and-run "return 1<=1;")))
+    (is (= 0 (compile-and-run "return 2<=1;"))))
   (testing "multiple expressions"
-    (is (= 1 (compile-and-run "3;2;1;"))))
+    (is (= 1 (compile-and-run "3;2; return 1;"))))
   (testing "variable assignment"
-    (is (= 3 (compile-and-run "x=2;3;")))
-    (is (= 7 (compile-and-run "x=2;x=3;7;")))
-    (is (= 0 (compile-and-run "x=2;y=3;0;"))))
+    (is (= 3 (compile-and-run "x=2; return 3;")))
+    (is (= 7 (compile-and-run "x=2;x=3; return 7;")))
+    (is (= 0 (compile-and-run "x=2;y=3; return 0;"))))
   (testing "variable references"
-    (is (= 3  (compile-and-run "foo=3; foo;")))
-    (is (= 8  (compile-and-run "foo123=3; bar=5; foo123+bar;")))
-    (is (= 8  (compile-and-run "foo123=3; bar=5; foo123+bar;")))
-    (is (= 2  (compile-and-run "x=2;x;")))
-    (is (= 3  (compile-and-run "a=2;b=3;b;")))
-    (is (= 5  (compile-and-run "a=2;b=3;a+b;")))
-    (is (= 12 (compile-and-run "a=2;b=3;c=10;a+b+c-3;")))
-    (is (= 6  (compile-and-run "a=2;b=3;a*b;")))))
+    (is (= 3  (compile-and-run "foo=3; return foo;")))
+    (is (= 8  (compile-and-run "foo123=3; bar=5; return foo123+bar;")))
+    (is (= 2  (compile-and-run "x=2; return x;")))
+    (is (= 3  (compile-and-run "a=2;b=3; return b;")))
+    (is (= 5  (compile-and-run "a=2;b=3; return a+b;")))
+    (is (= 12 (compile-and-run "a=2;b=3;c=10; return a+b+c-3;")))
+    (is (= 6  (compile-and-run "a=2;b=3; return a*b;"))))
+  (testing "early return"
+    (is (= 1 (compile-and-run "return 1; 2;")))
+    (is (= 7 (compile-and-run "a=12; return 5+2; a*2;")))))
