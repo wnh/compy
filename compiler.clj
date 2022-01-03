@@ -174,26 +174,26 @@
   ;;
   )
 
+(defn next-label [env]
+  (swap! (:counter env) inc))
+
 (defn emit-if [env node]
   ;; [:if test block]
   (debug :emit-if node)
   (let [test (nth node 1)
-        then (nth node 2)]
+        then (nth node 2)
+        n (next-label env)]
     (emit-expr env test)
     (emit env "  pop %%rax")
     (emit env "  cmp $0, %%rax")
-    (emit env "  jz .L.else")
+    (emit env "  jz .L.else.%d" n)
     (emit-expr env  then)
-    (emit env "  jmp .L.done")
-    (emit env ".L.else:")
+    (emit env "  jmp .L.done.%d" n)
+    (emit env ".L.else.%d:" n)
     (emit-expr env (if (= 4 (count node))
                      (nth node 3)
                      [:block]))
-    (emit env ".L.done:")
-    #_(when-let [else (nth node 3)]
-      (emit-expr env else)
-      (emit env "  jmp .L.done"))
-  ))
+    (emit env ".L.done.%d:" n)))
 
 (defn emit-expr [env node]
   (case (first node); type
@@ -259,6 +259,7 @@
   (let [locals (find-locals stmts)
         stack-size (* 8 (count locals))]
     {:block stmts
+     :counter (atom 0)
      :stack-size stack-size
      :local-offsets (into {}
                         (map vector
@@ -358,5 +359,8 @@
     (is (=  2 (compile-and-run "{ if (1) return 2; return 3; }")))
     (is (=  2 (compile-and-run "{ if (2-1) return 2; return 3; }")))
     (is (=  4 (compile-and-run "{ if (0) { 1; 2; return 3; } else { return 4; } }")))
-    (is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }")))))
+    (is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }"))))
+  (testing "multiple if statements"
+    (is (=  3 (compile-and-run "{ if (1) if (0) return 5; return 3; }")))
+    (is (=  5 (compile-and-run "{ if (1) return 5; if (0) return 3; }")))))
 
