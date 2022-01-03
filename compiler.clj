@@ -5,13 +5,16 @@
 
 (def parser
   (insta/parser
-   "
-    block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
+   "<program> = block
+
     <stmt> = stmt-single? ws <';'>
            | block
+           | if
+    block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
+    if = <kw-if> ws expr ws stmt
     <stmt-single> = return | assign | expr
     assign = ident <'='> expr
-    return = ws <'return'> ws expr
+    return = ws <kw-ret> ws expr
     <expr> = eq-expr
 
     <eq-expr> = eq | neq | rel-expr
@@ -39,22 +42,29 @@
     uplus   = ws <'+'> ws factor-expr
     num     = ws #'[0-9]+' ws
     ident   = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
-    <keyword> = <'return'>
+    <keyword> = kw-ret | kw-if
+    <kw-if>  = 'if'
+    <kw-ret> = 'return'
     <ws> = <#'\\s*'>"))
 
 
-(def ^:dynamic *debugging* false)
+(def ^:dynamic *debugging* true)
 (defn debug [& args]
   (when *debugging*
     (binding [*out* *err*]
       (apply prn args))))
 
 (comment
-  (compile-and-run "{x=2;y=3; return 9;}")
-  (parser "{x=2;y=3; return 0;}")
+  (binding [*debugging* true])
+  (parser "if (123/2) {return 123;}" :start :if)
+  (compiler "{return 42;}")
+  (parser "{return 42;}")
+  (insta/parses parser "{if 6}" :partial true)
+  (find-locals (first (parser "{x=2;y=3; return 0;}")))
   (parser " { return 12 + 34 - 5 ; }")
   (take 2 (insta/parses parser "{ {1; {2;} return 3;} }"))
   (parser "{ {1; {2;} return 3;} }")
+  (tokens "{ {1; {2;} return 3;} }")
   ;; assert 3 '{ {1; {2;} return 3;} }'
   )
 
@@ -157,10 +167,24 @@
   (:local-offsets (build-env (parser "x=2;return x;13;")))
   (compiler "a=2;b=3;b;")
   (compile-and-run "a=2;b=3;a+b;")
-  (compiler "a=2;b=3;c=10;a+b+c-3;")
-  (parser "a=2;b=3;a+b;")
+  ;(binding [*debugging* true]
+    (compile-and-run "{ if (0) return 9; return 7; }")
+   ; )
   ;;
   )
+
+(defn emit-if [env node]
+  ;; [:if test block]
+  (debug :emit-if node)
+  (let [test (nth node 1)
+        then (nth node 2)]
+    (emit-expr env test)
+    (emit env "  pop %%rax")
+    (emit env "  cmp $0, %%rax")
+    (emit env "  jz .L.done")
+    (emit-expr env  then)
+    (emit env ".L.done:")
+  ))
 
 (defn emit-expr [env node]
   (case (first node); type
@@ -184,9 +208,11 @@
     :var-ref  (emit-var-ref env node)
     :return  (emit-return env node)
     :block  (emit-block env node)
+    :if (emit-if env node)
     ))
 
 (defn emit-block [env node]
+  (debug :emit-block node)
   ;; [:block expr ...]
   (doseq [expr (rest node)]
     (emit-expr env expr)
@@ -194,6 +220,7 @@
 
 
 (defn emit-program [env]
+  (debug :emit-program env)
   (emit env "  .globl main")
   (emit env "main:")
   (emit env "  push %%rbp")
@@ -209,6 +236,7 @@
 
 
 (defn find-locals [ast]
+  (debug :find-locals ast)
   (case (first ast) 
     :block (apply clojure.set/union
                   (for [s (rest ast)]
@@ -218,6 +246,7 @@
 
 
 (defn build-env [stmts]
+  (debug :build-env stmts)
   (let [locals (find-locals stmts)
         stack-size (* 8 (count locals))]
     {:block stmts
@@ -229,10 +258,13 @@
 
 
 (defn compiler [src]
-  (let [ast (parser src)]
+  ;; TODO parser returns seq at top level
+  (let [ast (first (parser src))]
     (if (insta/failure? ast)
       (throw (Exception. (pr-str (insta/get-failure ast))))
-      (let [env (build-env ast)]
+      (let [env (build-env ast)] 
+        (debug :initial-ast ast)
+        (debug :initial-env env)
         (emit-program env)))))
 
 (defn -main []
@@ -243,7 +275,7 @@
 (defn compile-and-run [src] 
   (let [asm (with-out-str (compiler src))]
     (spit "tmp.s" asm)
-    (let [compile-out (clojure.java.shell/sh "gcc" "-static" "-o" "tmp" "tmp.s")]
+    (let [compile-out (clojure.java.shell/sh "gcc" "-static" "-g" "-o" "tmp" "tmp.s")]
       (if (< 0 (:exit compile-out))
         (throw (Exception. (:err compile-out)))
         (let [out (clojure.java.shell/sh "./tmp")]
@@ -310,4 +342,11 @@
     (is (= 3 (compile-and-run "{ {1; {2;} return 3;} }")))
     (is (= 2 (compile-and-run "{ {1; {return 2;} return 3;} }"))))
   (testing "unused semi-colons work"
-    (is (= 3 (compile-and-run "{ ;;; return 3;}")))))
+    (is (= 3 (compile-and-run "{ ;;; return 3;}"))))
+  (testing "if statements"
+    (is (=  3 (compile-and-run "{ if (0) return 2; return 3; }")))
+    (is (=  3 (compile-and-run "{ if (1-1) return 2; return 3; }")))
+    (is (=  2 (compile-and-run "{ if (1) return 2; return 3; }")))
+    (is (=  2 (compile-and-run "{ if (2-1) return 2; return 3; }")))
+    #_(is (=  4 (compile-and-run "{ if (0) { 1; 2; return 3; } else { return 4; } }")))
+    #_(is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }")))))
