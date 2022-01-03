@@ -84,7 +84,7 @@
 (defn emit-num [env node]
   (debug :emit-num)
   ;; [:num "123"]
-  (emit env "  push $%d" (Integer/parseInt (second node))))
+  (emit env "  mov $%d, %%rax" (Integer/parseInt (second node))))
 
 (defn emit-unary [env node]
   (debug :emit-unary)
@@ -92,16 +92,14 @@
   ;; [:uplus "123"]
   (case (first node)
     :uneg (do (emit-expr env (second node))
-              (emit env "  pop %%rax")
-              (emit env "  neg %%rax")
-              (emit env "  push %%rax"))
+              (emit env "  neg %%rax"))
     :uplus (do (emit-expr env (second node)))))
 
 (defn emit-rel [env node]
   (debug :emit-rel)
   (emit-expr env (node 1))
+  (emit env "  push %%rax")
   (emit-expr env (node 2))
-  (emit env "  pop %%rax")
   (emit env "  pop %%rbx")
   (case (node 0)
     :eq (do (emit env "  cmp %%rbx, %%rax")
@@ -115,51 +113,49 @@
     :lt (do (emit env "  cmp %%rax, %%rbx")
             (emit env "  setl %%al"))
     :lte (do (emit env "  cmp %%rax, %%rbx")
-             (emit env "  setle %%al")))
-  (emit env "  push %%rax"))
+             (emit env "  setle %%al"))))
 
 (defn emit-binop [env node]
   (let [[nodetype left right] node]
-    (emit-expr env left)
     (emit-expr env right)
+    (emit env "  push %%rax")
+    (emit-expr env left)
     (emit env "  pop %%rbx")
-    (emit env "  pop %%rax")
     (case nodetype
       :sub (emit env "  sub %%rbx, %%rax")
       :add (emit env "  add %%rbx, %%rax")
       :mul (emit env "  imul %%rbx, %%rax")
       :div (do (emit env "  xor %%rdx, %%rdx")
-               (emit env "  div %%rbx")))
-    (emit env "  push %%rax")))
+               (emit env "  div %%rbx")))))
 
 (defn emit-assignment [env node]
   (debug :emit-assignment env)
+  (emit env "  /* start assignment */")
   ;;[:assign [:ident "a"] [:num "2"]]
   (let [ident (second node)
         offsets (:local-offsets env)
         offset (get offsets ident)]
     (emit-expr env (nth node 2))
-    (emit env "  pop %%rax")
     (emit env "  lea %d(%%rbp), %%rdi" (- offset))
-    (emit env "  mov %%rax, (%%rdi)")
-    (emit env "  push $0")))
+    (emit env "  mov %%rax, (%%rdi)"))
+  (emit env "  /* end   assignment */"))
 
 (defn emit-var-ref [env node]
   (debug :emit-var-ref)
+  (emit env "  /* start var-ref */")
   ;;[:var-ref [:ident "a"]]
   #_(prn :var-ref env node)
   (let [ident (second node)
         offsets (:local-offsets env)
         offset (get offsets ident)]
     (emit env "  lea %d(%%rbp), %%rdi" (- offset))
-    (emit env "  mov (%%rdi), %%rax")
-    (emit env "  push %%rax")))
+    (emit env "  mov (%%rdi), %%rax"))
+  (emit env "  /* end   var-ref */"))
 
 (defn emit-return [env node]
   (debug :emit-return)
   ;;[:return expr]
   (emit-expr env (second node))
-  (emit env "  pop %%rax")
   (emit env "  jmp .L.return"))
 
 (comment
@@ -180,11 +176,13 @@
 (defn emit-if [env node]
   ;; [:if test block]
   (debug :emit-if node)
+  (emit env "  /* start if */")
   (let [test (nth node 1)
         then (nth node 2)
         n (next-label env)]
+    (emit env "  /* start if-test-expr */")
     (emit-expr env test)
-    (emit env "  pop %%rax")
+    (emit env "  /* end   if-test-expr */")
     (emit env "  cmp $0, %%rax")
     (emit env "  jz .L.else.%d" n)
     (emit-expr env  then)
@@ -193,7 +191,8 @@
     (emit-expr env (if (= 4 (count node))
                      (nth node 3)
                      [:block]))
-    (emit env ".L.done.%d:" n)))
+    (emit env ".L.done.%d:" n))
+  (emit env "  /* end if */"))
 
 (defn emit-expr [env node]
   (case (first node); type
@@ -224,24 +223,27 @@
   (debug :emit-block node)
   ;; [:block expr ...]
   (doseq [expr (rest node)]
-    (emit-expr env expr)
-    (emit env "  pop %%rax")))
+    (emit-expr env expr)))
 
 
 (defn emit-program [env]
   (debug :emit-program env)
+  (emit env "/*")
+  (emit env (with-out-str (clojure.pprint/pprint (:block env))))
+  (emit env "*/")
+  (emit env "  /* start emit-program */")
   (emit env "  .globl main")
   (emit env "main:")
   (emit env "  push %%rbp")
   (emit env "  mov %%rsp, %%rbp")
   (emit env "  sub  $%d, %%rsp" (:stack-size env))
   (emit-block env (:block env))
-
   (emit env "  mov $0, %%rax") ; ensure no fallthough makes our tests work
   (emit env ".L.return:")
   (emit env "  mov %%rbp, %%rsp")
   (emit env "  pop %%rbp")
-  (emit env "  ret"))
+  (emit env "  ret")
+  (emit env "  /* end emit-program */"))
 
 
 (defn find-locals [ast]
