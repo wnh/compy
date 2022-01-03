@@ -11,7 +11,7 @@
            | block
            | if
     block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
-    if = <kw-if> ws expr ws stmt
+    if = <kw-if> ws expr ws stmt ws (<kw-else> ws stmt)?
     <stmt-single> = return | assign | expr
     assign = ident <'='> expr
     return = ws <kw-ret> ws expr
@@ -44,6 +44,7 @@
     ident   = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
     <keyword> = kw-ret | kw-if
     <kw-if>  = 'if'
+    <kw-else>  = 'else'
     <kw-ret> = 'return'
     <ws> = <#'\\s*'>"))
 
@@ -181,9 +182,17 @@
     (emit-expr env test)
     (emit env "  pop %%rax")
     (emit env "  cmp $0, %%rax")
-    (emit env "  jz .L.done")
+    (emit env "  jz .L.else")
     (emit-expr env  then)
+    (emit env "  jmp .L.done")
+    (emit env ".L.else:")
+    (emit-expr env (if (= 4 (count node))
+                     (nth node 3)
+                     [:block]))
     (emit env ".L.done:")
+    #_(when-let [else (nth node 3)]
+      (emit-expr env else)
+      (emit env "  jmp .L.done"))
   ))
 
 (defn emit-expr [env node]
@@ -348,5 +357,6 @@
     (is (=  3 (compile-and-run "{ if (1-1) return 2; return 3; }")))
     (is (=  2 (compile-and-run "{ if (1) return 2; return 3; }")))
     (is (=  2 (compile-and-run "{ if (2-1) return 2; return 3; }")))
-    #_(is (=  4 (compile-and-run "{ if (0) { 1; 2; return 3; } else { return 4; } }")))
-    #_(is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }")))))
+    (is (=  4 (compile-and-run "{ if (0) { 1; 2; return 3; } else { return 4; } }")))
+    (is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }")))))
+
