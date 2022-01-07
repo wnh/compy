@@ -194,6 +194,13 @@
     (emit env ".L.done.%d:" n))
   (emit env "  /* end if */"))
 
+(defn emit-block [env node]
+  (debug :emit-block node)
+  ;; [:block expr ...]
+  (doseq [expr (rest node)]
+    (emit-expr env expr)))
+
+
 (defn emit-expr [env node]
   (case (first node); type
     :num (emit-num env node)
@@ -219,11 +226,6 @@
     :if (emit-if env node)
     ))
 
-(defn emit-block [env node]
-  (debug :emit-block node)
-  ;; [:block expr ...]
-  (doseq [expr (rest node)]
-    (emit-expr env expr)))
 
 
 (defn emit-program [env]
