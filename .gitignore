@@ -3,3 +3,8 @@ tmp
 tmp.s
 .cpcache
 .nrepl-port
+
+.gdb_history
+tokenizer.clj
+
+
