@@ -3,16 +3,27 @@
   (:require [instaparse.core :as insta]
             [clojure.test :as test :refer [deftest testing is]]))
 
+(def ^:dynamic *debugging* false)
+
 (def parser
   (insta/parser
    "<program> = block
 
-    <stmt> = stmt-single? ws <';'>
+    block = ws <'{'> ws stmt (ws stmt)* ws <'}'> ws
+
+    <stmt> = simple-stmt <semi>
+           | return <semi>
            | block
            | if
-    block = ws <'{'> ws (stmt ws)+ ws <'}'> ws
+           | for
     if = <kw-if> ws expr ws stmt ws (<kw-else> ws stmt)?
-    <stmt-single> = return | assign | expr
+
+    for = <kw-for> ws <'('> simple-stmt  <semi> simple-stmt <semi> simple-stmt <')'> stmt
+
+    <simple-stmt> = assign | expr | empty-stmt
+
+    empty-stmt = ws '' ws
+
     assign = ident <'='> expr
     return = ws <kw-ret> ws expr
     <expr> = eq-expr
@@ -43,13 +54,14 @@
     num     = ws #'[0-9]+' ws
     ident   = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
     <keyword> = kw-ret | kw-if
-    <kw-if>  = 'if'
     <kw-else>  = 'else'
+    <kw-for>  = 'for'
+    <kw-if>  = 'if'
     <kw-ret> = 'return'
+    <semi> = ws <';'> ws
     <ws> = <#'\\s*'>"))
 
 
-(def ^:dynamic *debugging* true)
 (defn debug [& args]
   (when *debugging*
     (binding [*out* *err*]
@@ -194,6 +206,20 @@
     (emit env ".L.done.%d:" n))
   (emit env "  /* end if */"))
 
+(defn emit-for [env node]
+  (let [[_ init-expr test-expr inc-expr body] node
+        n (next-label env)]
+    (emit-expr env init-expr)
+    (emit env ".L.For.Top.%d:" n)
+    (emit-expr env test-expr)
+    (emit env "  cmp $0, %%rax")
+    (emit env "  jz .L.For.End.%d" n)
+    (emit-expr env body)
+    (emit-expr env inc-expr)
+    (emit env "  jmp .L.For.Top.%d" n)
+    (emit env ".L.For.End.%d:" n)
+    ))
+
 (defn emit-block [env node]
   (debug :emit-block node)
   ;; [:block expr ...]
@@ -224,6 +250,8 @@
     :return  (emit-return env node)
     :block  (emit-block env node)
     :if (emit-if env node)
+    :for (emit-for env node)
+    :empty-stmt nil
     ))
 
 
@@ -297,74 +325,80 @@
           (:exit out))))))
 
 
+(defmacro assert-return [ret code]
+  `(is (=  ~ret (compile-and-run ~code))))
+
 (deftest  test-compiler-works
   (testing "Constants"
-    (is (=  0 (compile-and-run "{return 0;}")))
-    (is (= 42 (compile-and-run "{return 42;}"))))
+    (assert-return 0  "{return 0;}")
+    (assert-return 42  "{return 42;}"))
   (testing "addition and subtraction"
-    (is (= 21 (compile-and-run "{return 5+20-4;}")))
-    (is (= 41 (compile-and-run  " { return 12 + 34 - 5 ; }"))))
+    (assert-return 21  "{return 5+20-4;}")
+    (assert-return 41   " { return 12 + 34 - 5 ; }"))
   (testing "multiplication"
-    (is (=  3 (compile-and-run  " {return 5*3 -12;  }")))
-    (is (= 47 (compile-and-run  " {return 5+6*7;}"))))
+    (assert-return 3   " {return 5*3 -12;  }")
+    (assert-return 47   " {return 5+6*7;}"))
   (testing "brackets"
-    (is (= 15 (compile-and-run "{return 5*(9-6);}")))
-    (is (= 15 (compile-and-run "{return 5*(6*2-9);}")))
-    (is (= 51 (compile-and-run "{return 5* 6*2-9 ;}"))))
+    (assert-return 15  "{return 5*(9-6);}")
+    (assert-return 15  "{return 5*(6*2-9);}")
+    (assert-return 51  "{return 5* 6*2-9 ;}"))
   (testing "division"
-    (is (=  4 (compile-and-run "{return (3+5)/2;}")))
-    (is (=  4 (compile-and-run "{return (3+10)/3;}"))))
+    (assert-return 4  "{return (3+5)/2;}")
+    (assert-return 4  "{return (3+10)/3;}"))
   (testing "unary minus"
-    (is (= 10 (compile-and-run "{return -10+20;}")))
-    (is (= 10 (compile-and-run "{return - -10;}")))
-    (is (= 10 (compile-and-run "{return - - +10;}"))))
+    (assert-return 10  "{return -10+20;}")
+    (assert-return 10  "{return - -10;}")
+    (assert-return 10  "{return - - +10;}"))
   (testing "equality"
-    (is (= 0 (compile-and-run "{return 0 ==1;}")))
-    (is (= 1 (compile-and-run "{return 42==42;}")))
-    (is (= 1 (compile-and-run "{return 0!=1;}")))
-    (is (= 0 (compile-and-run "{return 42!=42;}"))))
+    (assert-return 0  "{return 0 ==1;}")
+    (assert-return 1  "{return 42==42;}")
+    (assert-return 1  "{return 0!=1;}")
+    (assert-return 0  "{return 42!=42;}"))
   (testing "greater than"
-    (is (= 1 (compile-and-run "{return 10>5;}")))
-    (is (= 0 (compile-and-run "{return 10>50;}")))
-    (is (= 0 (compile-and-run "{return 10>=50;}")))
-    (is (= 1 (compile-and-run "{return 10>=10;}"))))
+    (assert-return 1  "{return 10>5;}")
+    (assert-return 0  "{return 10>50;}")
+    (assert-return 0  "{return 10>=50;}")
+    (assert-return 1  "{return 10>=10;}"))
   (testing "less than"
-    (is (= 1 (compile-and-run "{return 0<1;}")))
-    (is (= 0 (compile-and-run "{return 1<1;}")))
-    (is (= 0 (compile-and-run "{return 2<1;}")))
-    (is (= 1 (compile-and-run "{return 0<=1;}")))
-    (is (= 1 (compile-and-run "{return 1<=1;}")))
-    (is (= 0 (compile-and-run "{return 2<=1;}"))))
+    (assert-return 1  "{return 0<1;}")
+    (assert-return 0  "{return 1<1;}")
+    (assert-return 0  "{return 2<1;}")
+    (assert-return 1  "{return 0<=1;}")
+    (assert-return 1  "{return 1<=1;}")
+    (assert-return 0  "{return 2<=1;}"))
   (testing "multiple expressions"
-    (is (= 1 (compile-and-run "{3;2; return 1;}"))))
+    (assert-return 1  "{3;2; return 1;}"))
   (testing "variable assignment"
-    (is (= 3 (compile-and-run "{x=2; return 3;}")))
-    (is (= 7 (compile-and-run "{x=2;x=3; return 7;}")))
-    (is (= 0 (compile-and-run "{x=2;y=3; return 0;}"))))
+    (assert-return 3  "{x=2; return 3;}")
+    (assert-return 7  "{x=2;x=3; return 7;}")
+    (assert-return 0  "{x=2;y=3; return 0;}"))
   (testing "variable references"
-    (is (= 3  (compile-and-run "{foo=3; return foo;}")))
-    (is (= 8  (compile-and-run "{foo123=3; bar=5; return foo123+bar;}")))
-    (is (= 2  (compile-and-run "{x=2; return x;}")))
-    (is (= 3  (compile-and-run "{a=2;b=3; return b;}")))
-    (is (= 5  (compile-and-run "{a=2;b=3; return a+b;}")))
-    (is (= 12 (compile-and-run "{a=2;b=3;c=10; return a+b+c-3;}")))
-    (is (= 6  (compile-and-run "{a=2;b=3; return a*b;}"))))
+    (assert-return 3  "{foo=3; return foo;}")
+    (assert-return 8  "{foo123=3; bar=5; return foo123+bar;}")
+    (assert-return 2  "{x=2; return x;}")
+    (assert-return 3  "{a=2;b=3; return b;}")
+    (assert-return 5  "{a=2;b=3; return a+b;}")
+    (assert-return 12  "{a=2;b=3;c=10; return a+b+c-3;}")
+    (assert-return 6  "{a=2;b=3; return a*b;}"))
   (testing "early return"
-    (is (= 1 (compile-and-run "{ return 1; 2; }")))
-    (is (= 7 (compile-and-run "{ a=12; return 5+2; a*2;}"))))
+    (assert-return 1  "{ return 1; 2; }")
+    (assert-return 7  "{ a=12; return 5+2; a*2;}"))
   (testing "blocks"
-    (is (= 3 (compile-and-run "{ {1; {2;} return 3;} }")))
-    (is (= 2 (compile-and-run "{ {1; {return 2;} return 3;} }"))))
+    (assert-return 3  "{ {1; {2;} return 3;} }")
+    (assert-return 2  "{ {1; {return 2;} return 3;} }"))
   (testing "unused semi-colons work"
-    (is (= 3 (compile-and-run "{ ;;; return 3;}"))))
+    (assert-return 3  "{ ;;; return 3;}"))
   (testing "if statements"
-    (is (=  3 (compile-and-run "{ if (0) return 2; return 3; }")))
-    (is (=  3 (compile-and-run "{ if (1-1) return 2; return 3; }")))
-    (is (=  2 (compile-and-run "{ if (1) return 2; return 3; }")))
-    (is (=  2 (compile-and-run "{ if (2-1) return 2; return 3; }")))
-    (is (=  4 (compile-and-run "{ if (0) { 1; 2; return 3; } else { return 4; } }")))
-    (is (=  3 (compile-and-run "{ if (1) { 1; 2; return 3; } else { return 4; } }"))))
+    (assert-return 3  "{ if (0) return 2; return 3; }")
+    (assert-return 3  "{ if (1-1) return 2; return 3; }")
+    (assert-return 2  "{ if (1) return 2; return 3; }")
+    (assert-return 2  "{ if (2-1) return 2; return 3; }")
+    (assert-return 4  "{ if (0) { 1; 2; return 3; } else { return 4; } }")
+    (assert-return 3  "{ if (1) { 1; 2; return 3; } else { return 4; } }"))
   (testing "multiple if statements"
-    (is (=  3 (compile-and-run "{ if (1) if (0) return 5; return 3; }")))
-    (is (=  5 (compile-and-run "{ if (1) return 5; if (0) return 3; }")))))
+    (assert-return 3  "{ if (1) if (0) return 5; return 3; }")
+    (assert-return 5  "{ if (1) return 5; if (0) return 3; }"))
+  (testing "for statement"
+    (assert-return 55 "{ i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }")
+    (assert-return 3 "{ for (;;) {return 3;} return 5; }")))
 
