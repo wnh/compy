@@ -16,9 +16,12 @@
            | block
            | if
            | for
+           | while
     if = <kw-if> ws expr ws stmt ws (<kw-else> ws stmt)?
 
     for = <kw-for> ws <'('> simple-stmt  <semi> simple-stmt <semi> simple-stmt <')'> stmt
+
+    while = <kw-while> ws <'('> expr <')'> ws stmt
 
     <simple-stmt> = assign | expr | empty-stmt
 
@@ -56,6 +59,7 @@
     <keyword> = kw-ret | kw-if
     <kw-else>  = 'else'
     <kw-for>  = 'for'
+    <kw-while>  = 'while'
     <kw-if>  = 'if'
     <kw-ret> = 'return'
     <semi> = ws <';'> ws
@@ -217,8 +221,18 @@
     (emit-expr env body)
     (emit-expr env inc-expr)
     (emit env "  jmp .L.For.Top.%d" n)
-    (emit env ".L.For.End.%d:" n)
-    ))
+    (emit env ".L.For.End.%d:" n)))
+
+(defn emit-while [env node]
+  (let [[_ test-expr body] node
+        n (next-label env)]
+    (emit env ".L.While.Top.%d:" n)
+    (emit-expr env test-expr)
+    (emit env "  cmp $0, %%rax")
+    (emit env "  jz .L.While.End.%d" n)
+    (emit-expr env body)
+    (emit env "  jmp .L.While.Top.%d" n)
+    (emit env ".L.While.End.%d:" n)))
 
 (defn emit-block [env node]
   (debug :emit-block node)
@@ -251,6 +265,7 @@
     :block  (emit-block env node)
     :if (emit-if env node)
     :for (emit-for env node)
+    :while (emit-while env node)
     :empty-stmt nil
     ))
 
@@ -326,7 +341,8 @@
 
 
 (defmacro assert-return [ret code]
-  `(is (=  ~ret (compile-and-run ~code))))
+  `(do (is (not  (insta/failure? (parser ~code))))
+       (is (=  ~ret (compile-and-run ~code)))))
 
 (deftest  test-compiler-works
   (testing "Constants"
@@ -400,5 +416,8 @@
     (assert-return 5  "{ if (1) return 5; if (0) return 3; }"))
   (testing "for statement"
     (assert-return 55 "{ i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }")
-    (assert-return 3 "{ for (;;) {return 3;} return 5; }")))
+    (assert-return 3 "{ for (;;) {return 3;} return 5; }"))
+  (testing "while statement"
+    (assert-return 15 "{ i=0; j=0; while (i < 5) { i = i+1; j=j+3; } return j; }")
+    (assert-return 3 "{ while(1) {return 3;} return 5; }")))
 
