@@ -49,13 +49,16 @@
     mul = factor-expr <'*'> term-expr
     div = factor-expr <'/'> term-expr
 
-    <factor-expr> = num | uneg | uplus | var-ref
+    <factor-expr> = num | unary | var-ref
                   | <'('> expr <')'>
+    <unary> = uneg | addr-of | deref | uplus
     var-ref = ident
-    uneg    = ws <'-'> ws factor-expr
-    uplus   = ws <'+'> ws factor-expr
-    num     = ws #'[0-9]+' ws
-    ident   = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
+    uneg      = ws <'-'> ws factor-expr
+    addr-of   = ws <'&'> ws factor-expr
+    deref     = ws <'*'> ws factor-expr
+    uplus    = ws <'+'> ws factor-expr
+    num      = ws #'[0-9]+' ws
+    ident    = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
     <keyword> = kw-ret | kw-if
     <kw-else>  = 'else'
     <kw-for>  = 'for'
@@ -241,6 +244,23 @@
     (emit-expr env expr)))
 
 
+(defn emit-deref [env node]
+  (let [[_ expr] node]
+    (emit-expr env expr)
+    (emit env "  mov %%rax, %%rdi")
+    (emit env "  mov (%%rdi), %%rax")))
+
+(defn emit-addr-of [env node]
+  (let [ [_ [expr-type]] node] 
+    (if (not= expr-type :var-ref)
+      (throw (Exception. (str "TypeError: Can't take reference to " expr-type))))
+    (let [ident (second (second node))
+          offsets (:local-offsets env)
+          offset (get offsets ident)]
+      (debug :addr-of ident offsets offset)
+      (emit env "  lea %d(%%rbp), %%rax" (- offset)))))
+
+
 (defn emit-expr [env node]
   (case (first node); type
     :num (emit-num env node)
@@ -266,6 +286,8 @@
     :if (emit-if env node)
     :for (emit-for env node)
     :while (emit-while env node)
+    :deref (emit-deref env node)
+    :addr-of (emit-addr-of env node)
     :empty-stmt nil
     ))
 
@@ -419,5 +441,8 @@
     (assert-return 3 "{ for (;;) {return 3;} return 5; }"))
   (testing "while statement"
     (assert-return 15 "{ i=0; j=0; while (i < 5) { i = i+1; j=j+3; } return j; }")
-    (assert-return 3 "{ while(1) {return 3;} return 5; }")))
+    (assert-return 3 "{ while(1) {return 3;} return 5; }"))
+  (testing "references"
+    (assert-return 4 "{ i=4; return *&i; }")
+    (assert-return 9 "{ i=4; j=&i; return *j + 5; }")))
 
