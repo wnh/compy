@@ -9,7 +9,7 @@
   (insta/parser
    "<program> = block
 
-    block = ws <'{'> ws stmt (ws stmt)* ws <'}'> ws
+    block =   <'{'>   stmt (  stmt)*   <'}'>  
 
     <stmt> = simple-stmt <semi>
            | return <semi>
@@ -17,18 +17,18 @@
            | if
            | for
            | while
-    if = <kw-if> ws expr ws stmt ws (<kw-else> ws stmt)?
+    if = <kw-if>   expr   stmt   (<kw-else>   stmt)?
 
-    for = <kw-for> ws <'('> simple-stmt  <semi> simple-stmt <semi> simple-stmt <')'> stmt
+    for = <kw-for>   <'('> simple-stmt  <semi> simple-stmt <semi> simple-stmt <')'> stmt
 
-    while = <kw-while> ws <'('> expr <')'> ws stmt
+    while = <kw-while>   <'('> expr <')'>   stmt
 
     <simple-stmt> = assign | expr | empty-stmt
 
-    empty-stmt = ws '' ws
+    empty-stmt =   ''  
 
     assign = ident <'='> expr
-    return = ws <kw-ret> ws expr
+    return =   <kw-ret>   expr
     <expr> = eq-expr
 
     <eq-expr> = eq | neq | rel-expr
@@ -36,10 +36,10 @@
     neq = rel-expr <'!='> rel-expr
 
     <rel-expr> = gt | gte | lt | lte | sum-expr
-    gt  = sum-expr ws <'>'> ws rel-expr
-    gte = sum-expr ws <'>='> ws rel-expr
-    lt  = sum-expr ws <'<'> ws rel-expr
-    lte = sum-expr ws <'<='> ws rel-expr
+    gt  = sum-expr   <'>'>   rel-expr
+    gte = sum-expr   <'>='>   rel-expr
+    lt  = sum-expr   <'<'>   rel-expr
+    lte = sum-expr   <'<='>   rel-expr
 
     <sum-expr> = add | sub | term-expr
     add  = term-expr <'+'> sum-expr
@@ -53,20 +53,20 @@
                   | <'('> expr <')'>
     <unary> = uneg | addr-of | deref | uplus
     var-ref = ident
-    uneg      = ws <'-'> ws factor-expr
-    addr-of   = ws <'&'> ws factor-expr
-    deref     = ws <'*'> ws factor-expr
-    uplus    = ws <'+'> ws factor-expr
-    num      = ws #'[0-9]+' ws
-    ident    = ws !keyword #'[a-zA-Z][a-zA-Z0-9]*' ws
+    uneg      =   <'-'>   factor-expr
+    addr-of   =   <'&'>   factor-expr
+    deref     =   <'*'>   factor-expr
+    uplus    =   <'+'>   factor-expr
+    num      =   #'[0-9]+'  
+    ident    =   !keyword #'[a-zA-Z][a-zA-Z0-9]*'  
     <keyword> = kw-ret | kw-if
     <kw-else>  = 'else'
     <kw-for>  = 'for'
     <kw-while>  = 'while'
     <kw-if>  = 'if'
     <kw-ret> = 'return'
-    <semi> = ws <';'> ws
-    <ws> = <#'\\s*'>"))
+    <semi> =   <';'>"
+   :auto-whitespace :standard))
 
 
 (defn debug [& args]
