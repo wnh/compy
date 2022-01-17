@@ -66,13 +66,21 @@
     <kw-if>  = 'if'
     <kw-ret> = 'return'
     <semi> =   <';'>"
-   :auto-whitespace :standard))
+   :auto-whitespace :standard
+   :output-format :enlive))
 
 
 (defn debug [& args]
   (when *debugging*
     (binding [*out* *err*]
       (apply prn args))))
+
+(defn prn-ast [node]
+  (case (:tag node)
+    :num   [:num   (-> node :content first) ]
+    :ident [:ident (-> node :content first) ]
+    (into [(:tag node)]
+          (map prn-ast (:content node)))))
 
 (comment
   (binding [*debugging* true])
@@ -88,9 +96,6 @@
   ;; assert 3 '{ {1; {2;} return 3;} }'
   )
 
-(meta
- (get-in (parser "5+3*12;") [1 2 2]))
-
 (defn bail [token]
   (throw (Exception. "Unexpeccted: " (pr-str token))))
 
@@ -103,24 +108,25 @@
 (defn emit-num [env node]
   (debug :emit-num)
   ;; [:num "123"]
-  (emit env "  mov $%d, %%rax" (Integer/parseInt (second node))))
+  (emit env "  mov $%d, %%rax" (Integer/parseInt (-> node :content first))))
 
 (defn emit-unary [env node]
   (debug :emit-unary)
   ;; [:uneg  "123"]
   ;; [:uplus "123"]
-  (case (first node)
-    :uneg (do (emit-expr env (second node))
+  (case (:tag node)
+    :uneg (do (emit-expr env (-> node :content first))
               (emit env "  neg %%rax"))
-    :uplus (do (emit-expr env (second node)))))
+    :uplus (do (emit-expr env (-> node :content first)))))
 
 (defn emit-rel [env node]
   (debug :emit-rel)
-  (emit-expr env (node 1))
-  (emit env "  push %%rax")
-  (emit-expr env (node 2))
-  (emit env "  pop %%rbx")
-  (case (node 0)
+  (let [[left right] (:content node)]
+    (emit-expr env left)
+    (emit env "  push %%rax")
+    (emit-expr env right)
+    (emit env "  pop %%rbx"))
+  (case (:tag node)
     :eq (do (emit env "  cmp %%rbx, %%rax")
             (emit env "  sete %%al"))
     :neq (do (emit env "  cmp %%rbx, %%rax")
@@ -135,12 +141,12 @@
              (emit env "  setle %%al"))))
 
 (defn emit-binop [env node]
-  (let [[nodetype left right] node]
+  (let [[left right] (:content node)]
     (emit-expr env right)
     (emit env "  push %%rax")
     (emit-expr env left)
     (emit env "  pop %%rbx")
-    (case nodetype
+    (case (:tag node)
       :sub (emit env "  sub %%rbx, %%rax")
       :add (emit env "  add %%rbx, %%rax")
       :mul (emit env "  imul %%rbx, %%rax")
@@ -151,10 +157,10 @@
   (debug :emit-assignment env)
   (emit env "  /* start assignment */")
   ;;[:assign [:ident "a"] [:num "2"]]
-  (let [ident (second node)
+  (let [[ident expr] (-> node :content)
         offsets (:local-offsets env)
         offset (get offsets ident)]
-    (emit-expr env (nth node 2))
+    (emit-expr env expr)
     (emit env "  lea %d(%%rbp), %%rdi" (- offset))
     (emit env "  mov %%rax, (%%rdi)"))
   (emit env "  /* end   assignment */"))
@@ -164,7 +170,7 @@
   (emit env "  /* start var-ref */")
   ;;[:var-ref [:ident "a"]]
   #_(prn :var-ref env node)
-  (let [ident (second node)
+  (let [ident (-> node :content first)
         offsets (:local-offsets env)
         offset (get offsets ident)]
     (emit env "  lea %d(%%rbp), %%rdi" (- offset))
@@ -174,7 +180,7 @@
 (defn emit-return [env node]
   (debug :emit-return)
   ;;[:return expr]
-  (emit-expr env (second node))
+  (emit-expr env (-> node :content first))
   (emit env "  jmp .L.return"))
 
 (comment
@@ -196,8 +202,7 @@
   ;; [:if test block]
   (debug :emit-if node)
   (emit env "  /* start if */")
-  (let [test (nth node 1)
-        then (nth node 2)
+  (let [[test then else-branch] (:content node)
         n (next-label env)]
     (emit env "  /* start if-test-expr */")
     (emit-expr env test)
@@ -207,14 +212,14 @@
     (emit-expr env  then)
     (emit env "  jmp .L.done.%d" n)
     (emit env ".L.else.%d:" n)
-    (emit-expr env (if (= 4 (count node))
-                     (nth node 3)
-                     [:block]))
+    (emit-expr env (if else-branch
+                     else-branch
+                     {:tag :block :content '()}))
     (emit env ".L.done.%d:" n))
   (emit env "  /* end if */"))
 
 (defn emit-for [env node]
-  (let [[_ init-expr test-expr inc-expr body] node
+  (let [[init-expr test-expr inc-expr body] (:content node)
         n (next-label env)]
     (emit-expr env init-expr)
     (emit env ".L.For.Top.%d:" n)
@@ -227,7 +232,7 @@
     (emit env ".L.For.End.%d:" n)))
 
 (defn emit-while [env node]
-  (let [[_ test-expr body] node
+  (let [[test-expr body] (:content node)
         n (next-label env)]
     (emit env ".L.While.Top.%d:" n)
     (emit-expr env test-expr)
@@ -240,21 +245,21 @@
 (defn emit-block [env node]
   (debug :emit-block node)
   ;; [:block expr ...]
-  (doseq [expr (rest node)]
+  (doseq [expr (:content node)]
     (emit-expr env expr)))
 
 
 (defn emit-deref [env node]
-  (let [[_ expr] node]
+  (let [[expr] (:content node)]
     (emit-expr env expr)
     (emit env "  mov %%rax, %%rdi")
     (emit env "  mov (%%rdi), %%rax")))
 
 (defn emit-addr-of [env node]
-  (let [ [_ [expr-type]] node] 
+  (let [expr-type (-> node :content first :tag)]
     (if (not= expr-type :var-ref)
       (throw (Exception. (str "TypeError: Can't take reference to " expr-type))))
-    (let [ident (second (second node))
+    (let [ident (-> node :content first :content first)
           offsets (:local-offsets env)
           offset (get offsets ident)]
       (debug :addr-of ident offsets offset)
@@ -262,7 +267,7 @@
 
 
 (defn emit-expr [env node]
-  (case (first node); type
+  (case (:tag node); type
     :num (emit-num env node)
 
     :add (emit-binop env node)
@@ -296,7 +301,7 @@
 (defn emit-program [env]
   (debug :emit-program env)
   (emit env "/*")
-  (emit env (with-out-str (clojure.pprint/pprint (:block env))))
+  (emit env (with-out-str (clojure.pprint/pprint (prn-ast (:block env)))))
   (emit env "*/")
   (emit env "  /* start emit-program */")
   (emit env "  .globl main")
@@ -315,11 +320,11 @@
 
 (defn find-locals [ast]
   (debug :find-locals ast)
-  (case (first ast) 
+  (case (:tag ast)
     :block (apply clojure.set/union
-                  (for [s (rest ast)]
+                  (for [s (:content ast)]
                     (find-locals s)))
-    :assign #{(-> ast second)}
+    :assign #{(-> ast :content first)}
     #{}))
 
 
@@ -445,4 +450,5 @@
   (testing "references"
     (assert-return 4 "{ i=4; return *&i; }")
     (assert-return 9 "{ i=4; j=&i; return *j + 5; }")))
+
 
