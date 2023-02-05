@@ -89,6 +89,7 @@
   (parser "{return 42;}")
   (insta/parses parser "{if 6}" :partial true)
   (find-locals (first (parser "{x=2;y=3; return 0;}")))
+  (compiler "{x=2;y=3; return 0;}")
   (parser " { return 12 + 34 - 5 ; }")
   (take 2 (insta/parses parser "{ {1; {2;} return 3;} }"))
   (parser "{ {1; {2;} return 3;} }")
@@ -102,6 +103,7 @@
 (defn emit [env & args]
   (apply printf args)
   (println ""))
+
 
 (declare emit-expr)
 
@@ -318,6 +320,40 @@
   (emit env "  /* end emit-program */"))
 
 
+(defn first-type
+  "grab the type of the first child node"
+  [node]
+  (-> node first :type))
+
+(defn type-check
+  "recursivly check the AST for type correctness and apply a :type
+  field to each node"
+  [node]
+  (if (not (map? node))
+    node
+    (let [typed-content (map type-check (:content node))
+          node-type (case (:tag node)
+                      :addr-of (do (if (not= (-> typed-content first :tag) :var-ref)
+                                     (throw (ex-info
+                                             (str "TypeError: Can't take reference to "
+                                                  (-> typed-content first :tag))
+                                             {})))
+                                 [:ptr (first-type typed-content)])
+                      :deref (do (if (not= (-> typed-content first :type first) :ptr)
+                                     (throw (ex-info
+                                             (str "TypeError: Can't dereference a "
+                                                  (-> typed-content first :tag))
+                                             {})))
+                                 (second (first-type typed-content)))
+                      :return (first-type typed-content)
+                      ;; else
+                      ;; TODO right now everything is an int. This will need to change
+                      :i64)]
+      (assoc node :type node-type
+             :content typed-content))))
+
+
+
 (defn find-locals [ast]
   (debug :find-locals ast)
   (case (:tag ast)
@@ -340,13 +376,13 @@
                              locals
                              (range 0 stack-size 8)))}))
 
-
 (defn compiler [src]
   ;; TODO parser returns seq at top level
   (let [ast (first (parser src))]
     (if (insta/failure? ast)
       (throw (Exception. (pr-str (insta/get-failure ast))))
-      (let [env (build-env ast)] 
+      (let [checked-ast (type-check ast)
+            env (build-env checked-ast)] 
         (debug :initial-ast ast)
         (debug :initial-env env)
         (emit-program env)))))
@@ -452,3 +488,15 @@
     (assert-return 9 "{ i=4; j=&i; return *j + 5; }")))
 
 
+(deftest  test-typechecking
+  (testing "Cant take reference of constants"
+    (is (thrown? Exception (-> "{i=&0;}"
+                               compiler))))
+  (testing "Cant deref constants"
+    (is (thrown? Exception (-> "{i=0;j=*i;}" compiler))))
+  ;; TODO: make the local vars offset happen incrementally so we can't
+  ;; see all variables in all scopes right away
+  #_(testing "need to declar a variable before its used"
+    (is (thrown? Exception (-> "{i; i=0;}" compiler)))))
+
+;TODO Better Error handling some how, maybe return an ast node with :error on it
