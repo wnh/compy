@@ -9,7 +9,6 @@ let ws = [' ' '\n' '\t' '\r']
 rule token = parse 
      | ws+ { token lexbuf }
      | digit+ as i { INT (int_of_string i) }
-     | ident { IDENT }
      | '=' { ASSIGN }
      | "==" { EQ }
      | "!=" { NEQ }
@@ -32,4 +31,6 @@ rule token = parse
      | "for" { FOR }
      | "return" { RETURN }
      | ';' { SEMI }
+     (* Make sure this is at the bottom *)
+     | ident { IDENT }
      | eof { EOF }
