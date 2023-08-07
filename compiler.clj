@@ -101,8 +101,9 @@
   (throw (Exception. "Unexpeccted: " (pr-str token))))
 
 (defn emit [env & args]
-  (apply printf args)
-  (println ""))
+  (let [asm (:asm env)
+        line (apply format args)]
+    (swap! asm (fn [s] (str s line "\n")))))
 
 
 (declare emit-expr)
@@ -257,9 +258,13 @@
     (emit env "  mov %%rax, %%rdi")
     (emit env "  mov (%%rdi), %%rax")))
 
+(defn is-lval? [node]
+  (let [expr-type (-> node :content first :tag)]
+    (= expr-type :var-ref)))
+
 (defn emit-addr-of [env node]
   (let [expr-type (-> node :content first :tag)]
-    (if (not= expr-type :var-ref)
+    (if (not (is-lval? node))
       (throw (Exception. (str "TypeError: Can't take reference to " expr-type))))
     (let [ident (-> node :content first :content first)
           offsets (:local-offsets env)
@@ -329,7 +334,8 @@
   "recursivly check the AST for type correctness and apply a :type
   field to each node"
   [node]
-  (if (not (map? node))
+  node
+  #_(if (not (map? node))
     node
     (let [typed-content (map type-check (:content node))
           node-type (case (:tag node)
@@ -352,6 +358,24 @@
       (assoc node :type node-type
              :content typed-content))))
 
+(comment 
+  (compile-and-run
+   "{ i=4; j=&i; return *j + 5; }")
+
+  (compile-and-run
+    "{i=&0;}")
+
+  (testing "Cant deref constants"
+    (is (thrown? Exception (-> "{i=0;j=*i;}" compiler))))
+
+  (compile-and-run "{i=0;j=*i;}")
+
+  ;; TODO: make the local vars offset happen incrementally so we can't
+  ;; see all variables in all scopes right away
+  #_(testing "need to declar a variable before its used"
+    (is (thrown? Exception (-> "{i; i=0;}" compiler))))
+  ;;
+  )
 
 
 (defn find-locals [ast]
@@ -369,6 +393,7 @@
   (let [locals (find-locals stmts)
         stack-size (* 8 (count locals))]
     {:block stmts
+     :asm (atom "")
      :counter (atom 0)
      :stack-size stack-size
      :local-offsets (into {}
@@ -385,7 +410,8 @@
             env (build-env checked-ast)] 
         (debug :initial-ast ast)
         (debug :initial-env env)
-        (emit-program env)))))
+        (emit-program env)
+        @(:asm env)))))
 
 (defn -main []
   (let [src (first *command-line-args*)]
@@ -393,7 +419,7 @@
 
 
 (defn compile-and-run [src] 
-  (let [asm (with-out-str (compiler src))]
+  (let [asm (compiler src)]
     (spit "tmp.s" asm)
     (let [compile-out (clojure.java.shell/sh "gcc" "-static" "-g" "-o" "tmp" "tmp.s")]
       (if (< 0 (:exit compile-out))
@@ -401,7 +427,6 @@
         (let [out (clojure.java.shell/sh "./tmp")]
           (prn out)
           (:exit out))))))
-
 
 (defmacro assert-return [ret code]
   `(do (is (not  (insta/failure? (parser ~code))))
