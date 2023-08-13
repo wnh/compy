@@ -4,6 +4,6 @@
   (modules parser))
 
 (executable
- (name compy)
+ (name compy_c)
  (libraries sexplib)
  (preprocess (pps ppx_sexp_conv)))
