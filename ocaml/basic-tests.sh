@@ -1,10 +1,9 @@
 #!/bin/sh
-set -x
 
 tests() {
     echo "testing Constants"
     assert_return 0  "{return 0;}"
-    #assert_return 42  "{return 42;}"
+    assert_return 42  "{return 42;}"
 
     #echo "testing addition and subtraction"
     #assert_return 21  "{return 5+20-4;}"
@@ -120,13 +119,20 @@ assert_return() {
 	return 1
     fi
     $bin
-    if [ $ret -eq $? ]
-    then
+    act="$?"
+    if [ $ret -eq $act ]; then
 	echo "OK"
     else
 	echo "FAIL"
+	echo "Want: $ret"
+	echo " Got: $act"
+	echo " src: $2"
     fi
 }
 
+if [ "${BASIC_TEST_DEBUG:-0}" -eq 1 ]
+then
+    set -x
+fi
 setup && tests
 #cleanup

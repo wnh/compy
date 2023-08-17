@@ -5,7 +5,10 @@
 # Eventually this will be rolled into the ocaml source but for now its
 # alot easier to coordinate it in this shell script
 
-set -ex
+if [ "${COMPY_AUX_DEBUG:-0}" -eq 1 ]
+then
+    set -x
+fi
 
 SCRIPTROOT="$(cd $(dirname $0) && pwd)"
 
@@ -26,7 +29,7 @@ bail() {
 case $cmd in
     compile)
 	src=$1
-	base=$(echo "$src" | sed -e 's/.lx$//')
+	base="$src"
 	#echo base=$base
 	#mkdir -p $(dirname "$build_dir/$base") || true
 	$COMPY_C $src -o $base.q  || bail 1 "Compy failed..."
