@@ -23,10 +23,10 @@ tests() {
     assert_return 4  "fun main() {return (3+5)/2;}"
     assert_return 4  "fun main() {return (3+10)/3;}"
 
-    #section "testing unary minus"
-    #assert_return 10  "{return -10+20;}"
-    #assert_return 10  "{return - -10;}"
-    #assert_return 10  "{return - - +10;}"
+    section "unary minus"
+    assert_return 10  "fun main() {return -10+20;}"
+    assert_return 10  "fun main() {return - -10;}"
+    assert_return 10  "fun main() {return - - +10;}"
 
     #section "testing equality"
     #assert_return 0  "{return 0 ==1;}"

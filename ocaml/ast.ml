@@ -19,6 +19,7 @@ and statement = Return of expr
 and expr =
   | BinOp of (operation * expr * expr)
   | Integer of int 
+  | Neg of expr
 [@@deriving sexp_of]
 
 and operation = Plus | Minus | Mult | Div

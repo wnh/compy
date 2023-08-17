@@ -64,6 +64,12 @@ module CodeGen = struct
        Printf.fprintf ctx.out "\t%%.%d =w add 0, %d\n" n i;
        n
     | BinOp (op, left, right) -> gen_bin_op ctx op left right
+    | Neg ex2 ->
+       let v = gen_expr ctx ex2 in
+       let n = next_local ctx in
+       Printf.fprintf ctx.out "\t%%.%d =w neg %%.%d\n" n v;
+       n
+
 
   let gen_stmt ctx stmt = match stmt with
     | Return e ->

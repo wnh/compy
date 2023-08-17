@@ -10,6 +10,7 @@ open Ast
 
 %left PLUS MINUS
 %left MULT DIV
+%nonassoc NEGATE
 
 %%
 
@@ -35,6 +36,8 @@ expr:
   | expr MULT expr { BinOp (Mult, $1, $3) }
   | expr DIV expr { BinOp (Div, $1, $3) }
   | INT { Integer $1 }
+  | MINUS expr %prec NEGATE { Neg $2 }
+  | PLUS expr %prec NEGATE { $2 }
   | LPAREN expr RPAREN { $2 }
 ;
 
