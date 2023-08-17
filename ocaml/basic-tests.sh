@@ -34,19 +34,19 @@ tests() {
     assert_return 1  "fun main(){return 0!=1;}"
     assert_return 0  "fun main(){return 42!=42;}"
 
-    #section "greater than"
-    #assert_return 1  "fun main(){return 10>5;}"
-    #assert_return 0  "fun main(){return 10>50;}"
-    #assert_return 0  "fun main(){return 10>=50;}"
-    #assert_return 1  "fun main(){return 10>=10;}"
+    section "greater than"
+    assert_return 1  "fun main(){return 10>5;}"
+    assert_return 0  "fun main(){return 10>50;}"
+    assert_return 0  "fun main(){return 10>=50;}"
+    assert_return 1  "fun main(){return 10>=10;}"
 
-    #section "less than"
-    #assert_return 1  "fun main(){return 0<1;}"
-    #assert_return 0  "fun main(){return 1<1;}"
-    #assert_return 0  "fun main(){return 2<1;}"
-    #assert_return 1  "fun main(){return 0<=1;}"
-    #assert_return 1  "fun main(){return 1<=1;}"
-    #assert_return 0  "fun main(){return 2<=1;}"
+    section "less than"
+    assert_return 1  "fun main(){return 0<1;}"
+    assert_return 0  "fun main(){return 1<1;}"
+    assert_return 0  "fun main(){return 2<1;}"
+    assert_return 1  "fun main(){return 0<=1;}"
+    assert_return 1  "fun main(){return 1<=1;}"
+    assert_return 0  "fun main(){return 2<=1;}"
 
     #section "multiple expressions"
     #assert_return 1  "fun main(){3;2; return 1;}"
@@ -104,6 +104,7 @@ tests() {
 
 setup() {
     basedir=$(mktemp -d /tmp/compy.XXXXX)
+    echo 'Base Dir: ' $basedir
 }
 
 cleanup() {

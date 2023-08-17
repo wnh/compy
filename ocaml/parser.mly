@@ -6,10 +6,10 @@ open Ast
 %token <int> INT
 %token <string> IDENT
 %token FUN LPAREN RPAREN RETURN LBRACE RBRACE SEMI PLUS MINUS MULT DIV
-%token EQ NEQ
+%token EQ NEQ GT GTE LT LTE
 %token EOF 
 
-%left EQ NEQ
+%left EQ NEQ GT GTE LT LTE
 %left PLUS MINUS
 %left MULT DIV
 %nonassoc NEGATE
@@ -39,6 +39,10 @@ expr:
   | expr DIV expr { BinOp (Div, $1, $3) }
   | expr EQ expr { BinOp (Eq, $1, $3) }
   | expr NEQ expr { BinOp (Neq, $1, $3) }
+  | expr GT expr { BinOp (Gt, $1, $3) }
+  | expr GTE expr { BinOp (Gte, $1, $3) }
+  | expr LT expr { BinOp (Lt, $1, $3) }
+  | expr LTE expr { BinOp (Lte, $1, $3) }
   | INT { Integer $1 }
   | MINUS expr %prec NEGATE { Neg $2 }
   | PLUS expr %prec NEGATE { $2 }

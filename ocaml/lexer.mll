@@ -19,6 +19,10 @@ rule token = parse
      | '/' { DIV }
      | "==" { EQ }
      | "!=" { NEQ }
+     | ">" { GT }
+     | ">=" { GTE }
+     | "<" { LT }
+     | "<=" { LTE }
      | "return" { RETURN }
      | "fun" { FUN }
      | ';' { SEMI }
