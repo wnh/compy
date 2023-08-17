@@ -5,8 +5,10 @@ open Ast
 %start <Ast.program> program
 %token <int> INT
 %token <string> IDENT
-%token FUN LPAREN RPAREN RETURN LBRACE RBRACE SEMI
+%token FUN LPAREN RPAREN RETURN LBRACE RBRACE SEMI PLUS MINUS
 %token EOF 
+
+%left PLUS MINUS
 
 %%
 
@@ -27,6 +29,8 @@ statement:
 ;
 
 expr:
+  | expr PLUS expr { BinOp (Plus, $1, $3) }
+  | expr MINUS expr { BinOp (Minus, $1, $3) }
   | INT { Integer $1 }
 ;
 

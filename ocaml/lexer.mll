@@ -13,6 +13,8 @@ rule token = parse
      | '}' { RBRACE }
      | '(' { LPAREN }
      | ')' { RPAREN }
+     | '+' { PLUS }
+     | '-' { MINUS }
      | "return" { RETURN }
      | "fun" { FUN }
      | ';' { SEMI }

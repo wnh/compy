@@ -16,5 +16,10 @@ and block = statement list
 and statement = Return of expr
 [@@deriving sexp_of]
 
-and expr = Integer of int 
+and expr =
+  | BinOp of (operation * expr * expr)
+  | Integer of int 
+[@@deriving sexp_of]
+
+and operation = Plus | Minus
 [@@deriving sexp_of]

@@ -2,12 +2,12 @@
 
 tests() {
     echo "testing Constants"
-    assert_return "c1" 0  "fun main() { return 0; }"
-    assert_return "c2" 42  "fun main() { return 42; }"
+    assert_return "const1" 0  "fun main() { return 0; }"
+    assert_return "const2" 42  "fun main() { return 42; }"
 
-    #echo "testing addition and subtraction"
-    #assert_return 21  "{return 5+20-4;}"
-    #assert_return 41   " { return 12 + 34 - 5 ; }"
+    echo "testing addition and subtraction"
+    assert_return "addsub1" 21 "fun main() {return 5+20-4;}"
+    assert_return "addsub2" 41 "fun main() { return 12 + 34 - 5 ; }"
 
     #echo "testing multiplication"
     #assert_return 3   " {return 5*3 -12;  }"

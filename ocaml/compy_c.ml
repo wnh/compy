@@ -38,28 +38,50 @@ end
 
 module CodeGen = struct
   open Ast
-  let emit out str = Printf.fprintf out "%s\n" str
+  type context =
+    { out: out_channel;
+      local: int ref;
+    }
+  let emit ctx str = Printf.fprintf ctx.out "%s\n" str
+  let next_local ctx = ctx.local := !(ctx.local) + 1; !(ctx.local)
 
+  let rec gen_bin_op ctx op left right =
+    let ln = gen_expr ctx left in
+    let rn = gen_expr ctx right in
+    let inst = match op with
+      | Plus -> "add"
+      | Minus -> "sub"
+    in
+    let n = next_local ctx in
+    Printf.fprintf ctx.out "\t%%.%d =w %s %%.%d, %%.%d\n" n inst ln rn;
+    n
 
-  let gen_expr out expr = match expr with
-    | Integer i -> emit out (string_of_int i)
+  and gen_expr ctx expr = match expr with
+    | Integer i ->
+       let n = next_local ctx in
+       Printf.fprintf ctx.out "\t%%.%d =w add 0, %d\n" n i;
+       n
+    | BinOp (op, left, right) -> gen_bin_op ctx op left right
 
-  let gen_stmt out stmt = match stmt with
+  let gen_stmt ctx stmt = match stmt with
     | Return e ->
-       Printf.fprintf out "ret "; gen_expr out e 
+       let r = gen_expr ctx e in
+       ignore (Printf.fprintf ctx.out "\tret %%.%d\n" r)
 
-  let gen_block out stmts =
-    ignore (List.map (fun s -> gen_stmt out s) stmts )
+  let gen_block ctx stmts =
+    ignore (List.map (fun s -> gen_stmt ctx s) stmts )
 
-  let gen_func_def out funcdef = match funcdef with
+  let gen_func_def ctx funcdef = match funcdef with
     | FuncDef {name; code} -> 
-       Printf.fprintf out "export function w $%s() {\n"  name;
-       emit out "@start";
-       gen_block out code;
-       emit out "}"
+       Printf.fprintf ctx.out "export function w $%s() {\n"  name;
+       emit ctx "@start";
+       gen_block ctx code;
+       emit ctx "}"
 
-  let generate out prg = match prg with
-    | MainFunc func -> gen_func_def out func
+  let generate out prg =
+    let ctx = { out; local = ref 0 } in
+    match prg with
+    | MainFunc func -> gen_func_def ctx func
 end
 
 let _ =
