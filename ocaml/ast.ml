@@ -21,5 +21,5 @@ and expr =
   | Integer of int 
 [@@deriving sexp_of]
 
-and operation = Plus | Minus
+and operation = Plus | Minus | Mult | Div
 [@@deriving sexp_of]

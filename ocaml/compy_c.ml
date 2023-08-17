@@ -51,6 +51,8 @@ module CodeGen = struct
     let inst = match op with
       | Plus -> "add"
       | Minus -> "sub"
+      | Mult -> "mul"
+      | Div -> "div"
     in
     let n = next_local ctx in
     Printf.fprintf ctx.out "\t%%.%d =w %s %%.%d, %%.%d\n" n inst ln rn;

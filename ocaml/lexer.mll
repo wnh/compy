@@ -15,6 +15,8 @@ rule token = parse
      | ')' { RPAREN }
      | '+' { PLUS }
      | '-' { MINUS }
+     | '*' { MULT }
+     | '/' { DIV }
      | "return" { RETURN }
      | "fun" { FUN }
      | ';' { SEMI }

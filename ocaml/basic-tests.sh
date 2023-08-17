@@ -9,9 +9,9 @@ tests() {
     assert_return "addsub1" 21 "fun main() {return 5+20-4;}"
     assert_return "addsub2" 41 "fun main() { return 12 + 34 - 5 ; }"
 
-    #echo "testing multiplication"
-    #assert_return 3   " {return 5*3 -12;  }"
-    #assert_return 47   " {return 5+6*7;}"
+    echo "testing multiplication"
+    assert_return "mul1" 3  " fun main() {return 5*3 -12;  }"
+    assert_return "mul2" 47 " fun main() {return 5+6*7;}"
 
     #echo "testing brackets"
     #assert_return 15  "{return 5*(9-6);}"
