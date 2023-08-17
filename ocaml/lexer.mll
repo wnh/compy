@@ -8,29 +8,14 @@ let ws = [' ' '\n' '\t' '\r']
 
 rule token = parse 
      | ws+ { token lexbuf }
-     | digit+ as i { INT (int_of_string i) }
-     | '=' { ASSIGN }
-     | "==" { EQ }
-     | "!=" { NEQ }
-     | '<' { LT }
-     | "<=" { LTE }
-     | '>' { GT }
-     | ">=" { GTE }
-     | '+' { PLUS }
-     | '-' { MINUS }
-     | '*' { STAR }
-     | '/' { DIV }
-     | '&' { AMP }
+     | digit+ as n { INT (int_of_string n) }
      | '{' { LBRACE }
      | '}' { RBRACE }
      | '(' { LPAREN }
      | ')' { RPAREN }
-     | "else" { ELSE }
-     | "if" { IF }
-     | "while" { WHILE }
-     | "for" { FOR }
      | "return" { RETURN }
+     | "fun" { FUN }
      | ';' { SEMI }
      (* Make sure this is at the bottom *)
-     | ident { IDENT }
+     | ident as i { IDENT i }
      | eof { EOF }

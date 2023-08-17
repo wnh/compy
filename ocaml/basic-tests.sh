@@ -2,8 +2,8 @@
 
 tests() {
     echo "testing Constants"
-    assert_return 0  "{return 0;}"
-    assert_return 42  "{return 42;}"
+    assert_return "c1" 0  "fun main() { return 0; }"
+    assert_return "c2" 42  "fun main() { return 42; }"
 
     #echo "testing addition and subtraction"
     #assert_return 21  "{return 5+20-4;}"
@@ -103,8 +103,6 @@ tests() {
 
 setup() {
     basedir=$(mktemp -d /tmp/compy.XXXXX)
-    src=$basedir/test.lx
-    bin=$basedir/test.exe
 }
 
 cleanup() {
@@ -112,8 +110,12 @@ cleanup() {
 }
 
 assert_return() {
-    ret="$1"
-    echo "$2" > $src
+    name="$1"
+    ret="$2"
+    inline_code="$3"
+    src=$basedir/test.$name.lx
+    bin=$basedir/test.$name.lx.exe
+    echo "$inline_code" > $src
     if ! ./compy-aux compile $src; then
 	echo "FAIL: Cant compile"
 	return 1
