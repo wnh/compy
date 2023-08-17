@@ -35,5 +35,6 @@ expr:
   | expr MULT expr { BinOp (Mult, $1, $3) }
   | expr DIV expr { BinOp (Div, $1, $3) }
   | INT { Integer $1 }
+  | LPAREN expr RPAREN { $2 }
 ;
 

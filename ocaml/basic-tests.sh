@@ -13,14 +13,15 @@ tests() {
     assert_return 3  " fun main() {return 5*3 -12;  }"
     assert_return 47 " fun main() {return 5+6*7;}"
 
-    #section "brackets"
-    #assert_return 15  "fun main() {return 5*(9-6);}"
-    #assert_return 15  "fun main() {return 5*(6*2-9);}"
-    #assert_return 51  "fun main() {return 5* 6*2-9 ;}"
+    section "brackets"
+    assert_return 15  "fun main() {return 5*(9-6);}"
+    assert_return 39  "fun main() {return (5*9)-6;}"
+    assert_return 15  "fun main() {return 5*(6*2-9);}"
+    assert_return 51  "fun main() {return 5* 6*2-9 ;}"
 
-    #section "division"
-    #assert_return 4  "fun main() {return (3+5)/2;}"
-    #assert_return 4  "fun main() {return (3+10)/3;}"
+    section "division"
+    assert_return 4  "fun main() {return (3+5)/2;}"
+    assert_return 4  "fun main() {return (3+10)/3;}"
 
     #section "testing unary minus"
     #assert_return 10  "{return -10+20;}"
@@ -120,6 +121,9 @@ assert_return() {
     inline_code="$2"
     src=$basedir/$test_section.$test_number.lx
     bin=$src.exe
+
+    echo -n $test_section $test_number " ..."
+
     echo "$inline_code" > $src
     if ! ./compy-aux compile $src; then
 	echo "FAIL: Cant compile"
