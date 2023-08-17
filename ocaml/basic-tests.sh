@@ -28,11 +28,11 @@ tests() {
     assert_return 10  "fun main() {return - -10;}"
     assert_return 10  "fun main() {return - - +10;}"
 
-    #section "equality"
-    #assert_return 0  "fun main(){return 0 ==1;}"
-    #assert_return 1  "fun main(){return 42==42;}"
-    #assert_return 1  "fun main(){return 0!=1;}"
-    #assert_return 0  "fun main(){return 42!=42;}"
+    section "equality"
+    assert_return 0  "fun main(){return 0 ==1;}"
+    assert_return 1  "fun main(){return 42==42;}"
+    assert_return 1  "fun main(){return 0!=1;}"
+    assert_return 0  "fun main(){return 42!=42;}"
 
     #section "greater than"
     #assert_return 1  "fun main(){return 10>5;}"

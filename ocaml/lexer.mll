@@ -17,6 +17,8 @@ rule token = parse
      | '-' { MINUS }
      | '*' { MULT }
      | '/' { DIV }
+     | "==" { EQ }
+     | "!=" { NEQ }
      | "return" { RETURN }
      | "fun" { FUN }
      | ';' { SEMI }

@@ -22,5 +22,5 @@ and expr =
   | Neg of expr
 [@@deriving sexp_of]
 
-and operation = Plus | Minus | Mult | Div
+and operation = Plus | Minus | Mult | Div | Eq | Neq
 [@@deriving sexp_of]

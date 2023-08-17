@@ -53,6 +53,8 @@ module CodeGen = struct
       | Minus -> "sub"
       | Mult -> "mul"
       | Div -> "div"
+      | Eq -> "ceqw"
+      | Neq -> "cnew"
     in
     let n = next_local ctx in
     Printf.fprintf ctx.out "\t%%.%d =w %s %%.%d, %%.%d\n" n inst ln rn;
