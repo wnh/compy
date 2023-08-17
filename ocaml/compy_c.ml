@@ -82,6 +82,7 @@ module CodeGen = struct
     | Return e ->
        let r = gen_expr ctx e in
        ignore (Printf.fprintf ctx.out "\tret %%.%d\n" r)
+    | ExprStmt s -> ignore (gen_expr ctx s)
 
   let gen_block ctx stmts =
     ignore (List.map (fun s -> gen_stmt ctx s) stmts )

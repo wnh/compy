@@ -13,7 +13,9 @@ and ident = string
 and block = statement list
 [@@deriving sexp_of]
 
-and statement = Return of expr
+and statement =
+  | Return of expr
+  | ExprStmt of expr
 [@@deriving sexp_of]
 
 and expr =

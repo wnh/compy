@@ -30,6 +30,7 @@ block:
 
 statement:
   | RETURN expr SEMI { Return $2 }
+  | expr SEMI { ExprStmt $1 }
 ;
 
 expr:
