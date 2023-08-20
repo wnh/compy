@@ -52,10 +52,10 @@ tests() {
     assert_return 1  "fun main(){3;2; return 1;}"
     assert_return 7  "fun main(){3;2; return 7;}"
 
-    #section "variable assignment"
-    #assert_return 3  "fun main(){x=2; return 3;}"
-    #assert_return 7  "fun main(){x=2;x=3; return 7;}"
-    #assert_return 0  "fun main(){x=2;y=3; return 0;}"
+    section "variable assignment"
+    assert_return 3  "fun main(){thing=2; return 3;}"
+    assert_return 7  "fun main(){x=2;x=3; return 7;}"
+    assert_return 0  "fun main(){x=2;y=3; return 0;}"
 
     #section "variable references"
     #assert_return 3  "fun main(){foo=3; return foo;}"

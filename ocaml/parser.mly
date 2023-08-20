@@ -6,13 +6,14 @@ open Ast
 %token <int> INT
 %token <string> IDENT
 %token FUN LPAREN RPAREN RETURN LBRACE RBRACE SEMI PLUS MINUS MULT DIV
-%token EQ NEQ GT GTE LT LTE
+%token EQ NEQ GT GTE LT LTE ASSIGN
 %token EOF 
 
 %left EQ NEQ GT GTE LT LTE
 %left PLUS MINUS
 %left MULT DIV
 %nonassoc NEGATE
+%left ASSIGN
 
 %%
 
@@ -29,6 +30,7 @@ block:
 ;
 
 statement:
+  | IDENT ASSIGN expr SEMI { Assign ($1, $3) }
   | RETURN expr SEMI { Return $2 }
   | expr SEMI { ExprStmt $1 }
 ;

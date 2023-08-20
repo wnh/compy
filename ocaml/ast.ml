@@ -14,6 +14,7 @@ and block = statement list
 [@@deriving sexp_of]
 
 and statement =
+  | Assign of (ident * expr)
   | Return of expr
   | ExprStmt of expr
 [@@deriving sexp_of]

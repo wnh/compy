@@ -79,6 +79,9 @@ module CodeGen = struct
 
 
   let gen_stmt ctx stmt = match stmt with
+    | Assign (id, expr) ->
+       let v = gen_expr ctx expr in
+       ignore (Printf.fprintf ctx.out "\t%%v.%s =w add 0, %%.%d\n" id v)
     | Return e ->
        let r = gen_expr ctx e in
        ignore (Printf.fprintf ctx.out "\tret %%.%d\n" r)

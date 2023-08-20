@@ -3,7 +3,7 @@
 let digit = ['0'-'9']
 let alpha = ['a'-'z''A'-'Z']
 let alphanum = alpha | digit
-let ident = alpha alphanum+
+let ident = alpha alphanum*
 let ws = [' ' '\n' '\t' '\r']
 
 rule token = parse 
@@ -17,6 +17,7 @@ rule token = parse
      | '-' { MINUS }
      | '*' { MULT }
      | '/' { DIV }
+     | '=' { ASSIGN }
      | "==" { EQ }
      | "!=" { NEQ }
      | ">" { GT }
@@ -29,3 +30,4 @@ rule token = parse
      (* Make sure this is at the bottom *)
      | ident as i { IDENT i }
      | eof { EOF }
+     | _ as c { failwith (Printf.sprintf "unexpected character: %C" c) }
