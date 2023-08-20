@@ -47,6 +47,7 @@ expr:
   | expr LT expr { BinOp (Lt, $1, $3) }
   | expr LTE expr { BinOp (Lte, $1, $3) }
   | INT { Integer $1 }
+  | IDENT { VarRef $1 }
   | MINUS expr %prec NEGATE { Neg $2 }
   | PLUS expr %prec NEGATE { $2 }
   | LPAREN expr RPAREN { $2 }

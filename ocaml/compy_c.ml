@@ -41,6 +41,7 @@ module CodeGen = struct
   type context =
     { out: out_channel;
       local: int ref;
+      vars: (string, int) Hashtbl.t
     }
   let emit ctx str = Printf.fprintf ctx.out "%s\n" str
   let next_local ctx = ctx.local := !(ctx.local) + 1; !(ctx.local)
@@ -76,12 +77,14 @@ module CodeGen = struct
        let n = next_local ctx in
        Printf.fprintf ctx.out "\t%%.%d =w neg %%.%d\n" n v;
        n
+    | VarRef varname -> Hashtbl.find ctx.vars varname
+
 
 
   let gen_stmt ctx stmt = match stmt with
     | Assign (id, expr) ->
        let v = gen_expr ctx expr in
-       ignore (Printf.fprintf ctx.out "\t%%v.%s =w add 0, %%.%d\n" id v)
+       Hashtbl.replace ctx.vars id v
     | Return e ->
        let r = gen_expr ctx e in
        ignore (Printf.fprintf ctx.out "\tret %%.%d\n" r)
@@ -98,7 +101,7 @@ module CodeGen = struct
        emit ctx "}"
 
   let generate out prg =
-    let ctx = { out; local = ref 0 } in
+    let ctx = { out; local = ref 0; vars = Hashtbl.create 10 } in
     match prg with
     | MainFunc func -> gen_func_def ctx func
 end
@@ -109,4 +112,3 @@ let _ =
   let out_ch = open_out out_fname in
   let ast = parse src_fname input_ch in
   CodeGen.generate out_ch ast
-

@@ -23,6 +23,7 @@ and expr =
   | BinOp of (operation * expr * expr)
   | Integer of int 
   | Neg of expr
+  | VarRef of string
 [@@deriving sexp_of]
 
 and operation = Plus | Minus | Mult | Div | Eq | Neq | Gt | Gte | Lt | Lte
