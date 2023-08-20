@@ -104,7 +104,11 @@ tests() {
 
 
 setup() {
-    basedir=$(mktemp -d /tmp/compy.XXXXX)
+
+    basedir=$(pwd)/_testtmp
+    mkdir -p $basedir
+
+    #basedir=$(mktemp -d /tmp/compy.XXXXX)
     echo 'Base Dir: ' $basedir
 }
 
@@ -135,6 +139,7 @@ assert_return() {
     act="$?"
     if [ $ret -eq $act ]; then
 	echo "OK"
+	rm $src $src.*
     else
 	echo "FAIL"
 	echo "Want: $ret"
