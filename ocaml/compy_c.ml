@@ -70,7 +70,7 @@ module CodeGen = struct
   and gen_expr ctx expr :int = match expr with
     | Integer i ->
        let n = next_local ctx in
-       Printf.fprintf ctx.out "\t%%.%d =w add 0, %d\n" n i;
+       Printf.fprintf ctx.out "\t%%.%d =w copy %d\n" n i;
        n
     | BinOp (op, left, right) -> gen_bin_op ctx op left right
     | Neg ex2 ->
@@ -91,7 +91,7 @@ module CodeGen = struct
     | Return e ->
        let r = gen_expr ctx e in
        let n = next_local ctx in
-       ignore (Printf.fprintf ctx.out "\t%%ret =w add 0, %%.%d\n" r);
+       ignore (Printf.fprintf ctx.out "\t%%ret =w copy %%.%d\n" r);
        emit ctx "\tjmp @return";
        Printf.fprintf ctx.out "@block.%d\n" n
 
@@ -102,7 +102,7 @@ module CodeGen = struct
     | FuncDef {name; code} -> 
        Printf.fprintf ctx.out "export function w $%s() {\n"  name;
        emit ctx "@start";
-       emit ctx "\t%ret =w add 0, 0";
+       emit ctx "\t%ret =w copy 0";
        gen_block ctx code;
        emit ctx "\tjmp @return";
        emit ctx "@return";
