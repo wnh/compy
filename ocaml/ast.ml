@@ -17,6 +17,7 @@ and statement =
   | Assign of (ident * expr)
   | Return of expr
   | ExprStmt of expr
+  | EmptyStmt
 [@@deriving sexp_of]
 
 and expr =

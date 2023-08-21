@@ -32,6 +32,7 @@ statement:
   | IDENT ASSIGN expr SEMI { Assign ($1, $3) }
   | RETURN expr SEMI { Return $2 }
   | expr SEMI { ExprStmt $1 }
+  | SEMI { EmptyStmt }
 ;
 
 expr:

@@ -74,8 +74,8 @@ tests() {
     assert_return 3  "fun main(){ {1; {2;}; return 3;}; }"
     assert_return 2  "fun main(){ {1; {return 2;}; return 3;}; }"
 
-    #section "unused semi-colons work"
-    #assert_return 3  "fun main(){ ;;; return 3;}"
+    section "unused semi-colons work"
+    assert_return 3  "fun main(){ ;;; return 3;}"
 
     #section "if statements"
     #assert_return 3  "fun main(){ if (0) return 2; return 3; }"

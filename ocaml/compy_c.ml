@@ -96,6 +96,7 @@ module CodeGen = struct
        Printf.fprintf ctx.out "@block.%d\n" n
 
     | ExprStmt s -> ignore (gen_expr ctx s)
+    | EmptyStmt -> ignore ()
 
   let gen_func_def ctx funcdef = match funcdef with
     | FuncDef {name; code} -> 
