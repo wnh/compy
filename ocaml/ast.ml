@@ -21,6 +21,7 @@ and statement =
 
 and expr =
   | BinOp of (operation * expr * expr)
+  | BlockExpr of block
   | Integer of int 
   | Neg of expr
   | VarRef of string

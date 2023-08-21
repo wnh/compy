@@ -66,13 +66,13 @@ tests() {
     assert_return 12  "fun main(){a=2;b=3;c=10; return a+b+c-3;}"
     assert_return 6  "fun main(){a=2;b=3; return a*b;}"
 
-    #section "early return"
-    #assert_return 1  "fun main(){ return 1; 2; }"
-    #assert_return 7  "fun main(){ a=12; return 5+2; a*2;}"
-    #
-    #section "blocks"
-    #assert_return 3  "fun main(){ {1; {2;} return 3;} }"
-    #assert_return 2  "fun main(){ {1; {return 2;} return 3;} }"
+    section "early return"
+    assert_return 1  "fun main(){ return 1; 2; }"
+    assert_return 7  "fun main(){ a=12; return 5+2; a*2;}"
+
+    section "blocks"
+    assert_return 3  "fun main(){ {1; {2;}; return 3;}; }"
+    assert_return 2  "fun main(){ {1; {return 2;}; return 3;}; }"
 
     #section "unused semi-colons work"
     #assert_return 3  "fun main(){ ;;; return 3;}"
@@ -128,7 +128,6 @@ assert_return() {
     src=$basedir/$test_section.$test_number.lx
     bin=$src.exe
 
-    echo -n $test_section $test_number " ..."
 
     echo "$inline_code" > $src
     if ! ./compy-aux compile $src; then
@@ -138,9 +137,12 @@ assert_return() {
     $bin
     act="$?"
     if [ $ret -eq $act ]; then
-	echo "OK"
+	echo -n '.'
+	#echo "OK"
 	rm $src $src.*
     else
+	echo ''
+	echo -n $test_section $test_number " ..."
 	echo "FAIL"
 	echo "Want: $ret"
 	echo " Got: $act"

@@ -46,6 +46,7 @@ module CodeGen = struct
   let emit ctx str = Printf.fprintf ctx.out "%s\n" str
   let next_local ctx = ctx.local := !(ctx.local) + 1; !(ctx.local)
 
+
   let rec gen_bin_op ctx op left right =
     let ln = gen_expr ctx left in
     let rn = gen_expr ctx right in
@@ -66,7 +67,7 @@ module CodeGen = struct
     Printf.fprintf ctx.out "\t%%.%d =w %s %%.%d, %%.%d\n" n inst ln rn;
     n
 
-  and gen_expr ctx expr = match expr with
+  and gen_expr ctx expr :int = match expr with
     | Integer i ->
        let n = next_local ctx in
        Printf.fprintf ctx.out "\t%%.%d =w add 0, %d\n" n i;
@@ -78,26 +79,33 @@ module CodeGen = struct
        Printf.fprintf ctx.out "\t%%.%d =w neg %%.%d\n" n v;
        n
     | VarRef varname -> Hashtbl.find ctx.vars varname
+    | BlockExpr b -> gen_block ctx b; 0
 
+  and gen_block ctx stmts =
+    ignore (List.map (fun s -> gen_stmt ctx s) stmts )
 
-
-  let gen_stmt ctx stmt = match stmt with
+  and gen_stmt ctx stmt = match stmt with
     | Assign (id, expr) ->
        let v = gen_expr ctx expr in
        Hashtbl.replace ctx.vars id v
     | Return e ->
        let r = gen_expr ctx e in
-       ignore (Printf.fprintf ctx.out "\tret %%.%d\n" r)
-    | ExprStmt s -> ignore (gen_expr ctx s)
+       let n = next_local ctx in
+       ignore (Printf.fprintf ctx.out "\t%%ret =w add 0, %%.%d\n" r);
+       emit ctx "\tjmp @return";
+       Printf.fprintf ctx.out "@block.%d\n" n
 
-  let gen_block ctx stmts =
-    ignore (List.map (fun s -> gen_stmt ctx s) stmts )
+    | ExprStmt s -> ignore (gen_expr ctx s)
 
   let gen_func_def ctx funcdef = match funcdef with
     | FuncDef {name; code} -> 
        Printf.fprintf ctx.out "export function w $%s() {\n"  name;
        emit ctx "@start";
+       emit ctx "\t%ret =w add 0, 0";
        gen_block ctx code;
+       emit ctx "\tjmp @return";
+       emit ctx "@return";
+       emit ctx "\tret %ret";
        emit ctx "}"
 
   let generate out prg =

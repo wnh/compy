@@ -13,7 +13,6 @@ open Ast
 %left PLUS MINUS
 %left MULT DIV
 %nonassoc NEGATE
-%left ASSIGN
 
 %%
 
@@ -46,6 +45,7 @@ expr:
   | expr GTE expr { BinOp (Gte, $1, $3) }
   | expr LT expr { BinOp (Lt, $1, $3) }
   | expr LTE expr { BinOp (Lte, $1, $3) }
+  | block { BlockExpr $1 }
   | INT { Integer $1 }
   | IDENT { VarRef $1 }
   | MINUS expr %prec NEGATE { Neg $2 }
