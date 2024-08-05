@@ -2,37 +2,47 @@ package main
 
 import (
 	"fmt"
-	"os"
+	//"os"
 )
-
 
 func main() {
 	//fmt.Println("hey")
-	lex := NewLexer(`
-	module main;
+	txt := `module main;
 
-	fn main(args : []string): int {
-		let thing = print("hey  there");
+	fn main(args: []string): int 
+        {
+		let thing: string = "hey  there";
 		let out = if len(args) >= 2 {
 			"too many args"
 		} else {
 			"something else"
 		}
+
 		{
-			let x = 123; // random block
+			let x: int = 123; // random block
 		}
 		return 0;
 	}
-	`)
-	for range 100 {
-		t, err := lex.Next()
-		if err != nil {
-			fmt.Printf("token error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("got token: %v: %#v\n", t, lex.text)
-		if t == TokEof {
+	`
+	_ = txt
+
+	//lex := NewLexer(" 123x ")
+	//lex := NewLexer(" foo  bar")
+	lex := NewLexer("foo ")
+	//lex := NewLexer(txt)
+
+	for i:=0; i<100; i++  {
+		//fmt.Println("TOP:", i);
+		tok := lex.Next()
+		fmt.Printf("  got: %v (%#v) \n", tok, lex.textValue)
+		if tok == TokEof {
+			fmt.Println("Ended successfully?")
+			break
+		} else if tok == TokErr {
+			fmt.Printf("token error: %v\n", lex.Error)
 			break
 		}
+		//fmt.Printf("%v\n",  tok)
 	}
+
 }

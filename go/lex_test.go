@@ -6,35 +6,30 @@ import (
 )
 
 func TestNextToken(t *testing.T) {
-	type testcase struct { input string; tokens []Token }
+	type testcase struct { n string; input string; tokens []Token }
 	tests := []testcase{
-		testcase{ input: "123 ", tokens: []Token{TokInt} },
-		testcase{ input: "123", tokens: []Token{TokInt} },
-		testcase{ input: "123 456", tokens: []Token{TokInt, TokInt} },
-		testcase{ input: "foo", tokens: []Token{TokIdent} },
-		testcase{ input: "fn foo", tokens: []Token{TokFn, TokIdent} },
-		testcase{ input: "fn foo(a : int)", tokens: []Token{TokFn, TokIdent, TokLpar, TokIdent, TokColon, TokIdent, TokRpar} },
+		testcase{ n: "Integer", input: "123", tokens: []Token{TokInt} },
+		testcase{ n: "Trailing space", input: "123 ", tokens: []Token{TokInt} },
+		testcase{ n: "Leading space", input: "   123", tokens: []Token{TokInt} },
+		testcase{ n: "Leading+Trailing space", input: "   123", tokens: []Token{TokInt} },
+		testcase{ n: "Two Ints", input: "123 456", tokens: []Token{TokInt, TokInt} },
+		testcase{ n: "Ident", input: "foo", tokens: []Token{TokIdent} },
+		testcase{ n: "keyword and Ident", input: "fn foo", tokens: []Token{TokFn, TokIdent} },
+		testcase{ n: "Fn", input: "fn foo(a : int)", tokens: []Token{TokFn, TokIdent, TokLpar, TokIdent, TokColon, TokIdent, TokRpar} },
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.input, func (t *testing.T) {
+		t.Run(tc.n, func (t *testing.T) {
 			l := NewLexer(tc.input)
-			for _, tok := range tc.tokens {
-				tt, err := l.Next()
-				//fmt.Printf("token %v\n", tt)
-				if err != nil {
-					t.Fail()
-				}
-				if tt != tok {
-					t.Fail()
+			for _, expected := range tc.tokens {
+				got := l.Next()
+				if got != expected {
+					t.Errorf("Expected %v got %v", expected, got)
 				}
 			}
-			tt, err := l.Next()
-			if err != nil {
-				t.Fail()
-			}
-			if tt != TokEof {
-				t.Fail()
+			lastTok := l.Next()
+			if lastTok != TokEof {
+				t.Errorf("Expected EOF got %v", lastTok)
 			}
 		})
 	}

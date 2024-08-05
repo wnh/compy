@@ -1,18 +1,21 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
+	"io"
 	"strings"
 )
 
 type Lexer struct {
-	i     int
 	input string
+	reader *strings.Reader
+	isEof bool
+	current rune
 	// f
-	text string
-	num  int
+	textValue string
+	numValue  int
+	Error error
 }
 
 //go:generate stringer -type=Token
@@ -52,37 +55,46 @@ var keywords = map[string]Token{
 }
 
 func NewLexer(input string) Lexer {
-	return Lexer{input: input, i: 0}
+	l := Lexer{input: input, reader: strings.NewReader(input)}
+	l.nextChar()
+	return l
 }
 
-func (l *Lexer) IsEof() bool {
-	return l.i >= len(l.input)
-}
-
-func (l *Lexer) char() byte {
-	if l.IsEof() {
+func (l *Lexer) nextChar() rune {
+	r, runeLen, err :=  l.reader.ReadRune()
+	_ = runeLen
+	//fmt.Printf("nextChar(): %v %#v %#v %v \n", string(r), runeLen, err, err == io.EOF)
+	if err == io.EOF {
+		//fmt.Println("Im returning?")
+		l.isEof = true
+		l.current = 0
 		return 0
 	}
-	return l.input[l.i]
-}
-
-func (l *Lexer) nextChar() byte {
-	l.i += 1
-	return l.char()
-}
-
-func (l *Lexer) Next() (Token, error) {
-	l.text = ""
-	l.num = 0
-	//fmt.Printf("Input length: %d\n", len(l.input))
-	if l.i == len(l.input) {
-		return TokEof, nil
+	if err != nil {
+		 panic("bad rune read")
 	}
+	l.current = r
+	return r
+}
+
+func (l *Lexer) char() rune {
+	return l.current
+}
+
+func (l *Lexer) Next() Token {
+	l.textValue = ""
+	l.numValue = 0
 	c := l.char()
-	switch {
-	case isWS(c):
+	//fmt.Println("Next(): l.isEof", l.isEof)
+	if isWS(c) {
 		l.skipWS()
-		return l.Next()
+		c = l.char()
+	}
+	if l.isEof {
+		return TokEof
+	}
+	//fmt.Printf("char: %#v\n", c)
+	switch {
 	case isAlpha(c):
 		return l.TokenizeIdent()
 	case isNum(c):
@@ -91,37 +103,37 @@ func (l *Lexer) Next() (Token, error) {
 		return l.TokenizeString()
 	case c == '(':
 		l.nextChar()
-		return TokLpar, nil
+		return TokLpar
 	case c == ')':
 		l.nextChar()
-		return TokRpar, nil
+		return TokRpar
 	case c == '[':
 		l.nextChar()
-		return TokLsq, nil
+		return TokLsq
 	case c == ']':
 		l.nextChar()
-		return TokRsq, nil
+		return TokRsq
 	case c == '{':
 		l.nextChar()
-		return TokLbrace, nil
+		return TokLbrace
 	case c == '}':
 		l.nextChar()
-		return TokRbrace, nil
+		return TokRbrace
 	case c == ':':
 		l.nextChar()
-		return TokColon, nil
+		return TokColon
 	case c == '=':
 		l.nextChar()
-		return TokAssign, nil
+		return TokAssign
 	case c == ';':
 		l.nextChar()
-		return TokSemi, nil
+		return TokSemi
 	case c == '>':
 		if l.nextChar() == '=' {
-			l.i += 1
-			return TokGte, nil
+			l.nextChar()
+			return TokGte
 		} else {
-			return TokGt, nil
+			return TokGt
 		}
 	case c == '/':
 		if l.nextChar() == '/' {
@@ -129,68 +141,73 @@ func (l *Lexer) Next() (Token, error) {
 			l.skipComment()
 			return l.Next()
 		} else {
-			return TokDiv, nil
+			return TokDiv
 		}
 	default:
-		return TokErr, errors.New("this is not quite working yet")
+		l.Error =  fmt.Errorf("this is not quite working yet")
+		l.textValue = l.Error.Error()
+		return TokErr 
 	}
 }
-func isNum(c byte) bool {
+func isNum(c rune) bool {
 	return c >= '0' && c <= '9'
 }
-func isAlpha(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+func isAlpha(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c  >= 'A' && c <= 'Z')
 }
 
-func isWS(c byte) bool {
+func isWS(c rune) bool {
+	//fmt.Println("isWS():", string(c))
 	return strings.ContainsAny(string(c), " \t\r\n")
 }
 
 func (l *Lexer) skipWS() {
+	//fmt.Println("skipWs()")
 	for isWS(l.char()) {
-		l.i++
+		l.nextChar()
 	}
 }
 
 func (l *Lexer) skipComment() {
-	for l.nextChar() != '\n' {
-	}
+	for l.nextChar() != '\n' {}
 	l.nextChar() // Move over newline
 }
 
-func (l *Lexer) TokenizeString() (Token, error) {
-	l.text=""
+func (l *Lexer) TokenizeString() Token {
+	l.textValue=""
 	for l.nextChar() != '"' {
-		l.text += string(l.char())
+		l.textValue += string(l.char())
 	}
 	l.nextChar() // Move over closing quote
-	return TokString, nil
+	return TokString
 }
 
-func (l *Lexer) TokenizeIdent() (Token, error) {
-	l.text = ""
+func (l *Lexer) TokenizeIdent() Token {
+	l.textValue = ""
 	for isAlpha(l.char()) || isNum(l.char()){
-		l.text += string(l.char())
+		l.textValue += string(l.char())
 		l.nextChar()
 	}
-	if kw, ok := keywords[l.text]; ok {
-		return kw, nil
+	if kw, ok := keywords[l.textValue]; ok {
+		return kw
 	}
-	return TokIdent, nil
+	return TokIdent
 }
 
-func (l *Lexer) TokenizeInt() (Token, error) {
+func (l *Lexer) TokenizeInt() Token {
 	//fmt.Println("Token int", l.i)
-	l.text = ""
+	l.textValue = ""
 	for isNum(l.char()) {
-		l.text = l.text + string(l.char())
+		l.textValue = l.textValue + string(l.char())
 		l.nextChar()
 	}
 	// TODO: parse text into num
 	var err error
-	l.num, err = strconv.Atoi(l.text)
+	l.numValue, err = strconv.Atoi(l.textValue)
 	if err != nil {
-		errors.New(fmt.Sprintf("unable to convert Int token (%#v)", l.text))
+		l.Error = fmt.Errorf("unable to convert Int token (%#v)", l.textValue)
+		l.textValue = l.Error.Error()
+		return TokErr
 	}
-	return TokInt, nil
+	return TokInt
 }
