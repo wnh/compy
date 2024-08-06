@@ -36,19 +36,19 @@ func TestParseModuleWithConsts(t *testing.T) {
 		module test;
 		
 		let foo = 12;
+		let bar = "more";
 	`
 	p := NewParser(txt)
 	mod, err := p.ParseModule()
 	t.Logf("%v", err)
-	t.Logf("%#v", mod)
+	t.Logf("%+v", mod)
 	if err != nil || mod == nil {
 		t.Fatal()
 	}
 	if mod.Name != "test" {
 		t.Errorf("bad module name: expected %#v got %#v", "test", mod.Name)
 	}
-	if len(mod.Statements) != 1 {
-		t.Error("wrong number of statements")
+	if len(mod.Statements) != 2 {
+		t.Fatal("wrong number of statements")
 	}
-
 }

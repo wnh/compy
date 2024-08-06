@@ -75,7 +75,6 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 	}
 	mod := AstModule{Name: modName}
 	for {
-		fmt.Printf("ll: %v\n", p.tok)
 		if p.peekIs(TokEof) {
 			break
 		}
@@ -106,16 +105,41 @@ func (p *Parser) ParseConstAssign() (AstConstAssign, error) {
 	if err := p.expect(TokAssign); err != nil {
 		return AstConstAssign{}, err
 	}
-	intText, err := p.expectv(TokInt)
-	if err != nil {
-		return AstConstAssign{}, err
-	}
-	intVal, err := strconv.Atoi(intText)
+	valExpr, err := p.ParseExpr()
 	if err != nil {
 		return AstConstAssign{}, err
 	}
 	if err := p.expect(TokSemi); err != nil {
 		return AstConstAssign{}, err
 	}
-	return AstConstAssign{Ident: constName, Value: intVal}, nil
+	return AstConstAssign{Ident: constName, Value: valExpr}, nil
+}
+
+func (p *Parser) ParseExpr() (AstExpr, error) {
+	if p.peekIs(TokInt) {
+		return p.ParseIntLitExpr()
+	} else if p.peekIs(TokString) {
+		return p.ParseStringLitExpr()
+	}
+	return nil, p.parseError()
+}
+
+func (p *Parser) ParseIntLitExpr() (AstIntLitExpr, error) {
+	intText, err := p.expectv(TokInt)
+	if err != nil {
+		return AstIntLitExpr{}, err
+	}
+	intVal, err := strconv.Atoi(intText)
+	if err != nil {
+		return AstIntLitExpr{}, err
+	}
+	return AstIntLitExpr{Value: intVal}, nil
+}
+
+func (p *Parser) ParseStringLitExpr() (AstStringLitExpr, error) {
+	text, err := p.expectv(TokString);
+	if err != nil {
+		return AstStringLitExpr{}, err
+	}
+	return AstStringLitExpr{Value: text}, nil
 }

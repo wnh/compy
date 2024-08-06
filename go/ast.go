@@ -13,9 +13,17 @@ type AstStatement interface {
 	isStatement()
 }
 
-
 type AstConstAssign struct {
 	Ident string
-	Value int
+	Value AstExpr
 }
 func (AstConstAssign) isStatement() {}
+
+
+type AstExpr interface {}
+type AstIntLitExpr struct {
+	Value int
+}
+type AstStringLitExpr struct {
+	Value string
+}
