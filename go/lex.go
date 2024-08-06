@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"io"
 	"strings"
 )
@@ -12,18 +11,21 @@ type Lexer struct {
 	reader *strings.Reader
 	isEof bool
 	current rune
-	// f
-	textValue string
-	numValue  int
+}
+
+//go:generate stringer -type=TokenKind
+type TokenKind int
+type Token struct {
+	Kind TokenKind
+	// the raw text for the toke, unless kind == TokErr then its the error text
+	// TODO(wnh): keep those separate 
+	Text string 
 	Error error
 }
 
-//go:generate stringer -type=Token
-type Token int
-
 const (
-	TokErr Token = -1
-	TokEof Token = iota
+	TokErr TokenKind = -1
+	TokEof TokenKind = iota
 	TokInt
 	TokIdent
 	TokFn
@@ -46,7 +48,14 @@ const (
 	TokDiv
 )
 
-var keywords = map[string]Token{
+func MkToken(kind TokenKind, text string) Token {
+	return Token{kind, text, nil}
+}
+func MkTokenErr(err error) Token {
+	return Token{TokErr, "", err}
+}
+
+var keywords = map[string]TokenKind{
 	"fn": TokFn,
 	"let": TokLet,
 	"module": TokModule,
@@ -82,8 +91,6 @@ func (l *Lexer) char() rune {
 }
 
 func (l *Lexer) Next() Token {
-	l.textValue = ""
-	l.numValue = 0
 	c := l.char()
 	//fmt.Println("Next(): l.isEof", l.isEof)
 	if isWS(c) {
@@ -91,7 +98,7 @@ func (l *Lexer) Next() Token {
 		c = l.char()
 	}
 	if l.isEof {
-		return TokEof
+		return MkToken(TokEof, "")
 	}
 	//fmt.Printf("char: %#v\n", c)
 	switch {
@@ -103,37 +110,37 @@ func (l *Lexer) Next() Token {
 		return l.TokenizeString()
 	case c == '(':
 		l.nextChar()
-		return TokLpar
+		return MkToken(TokLpar, "(")
 	case c == ')':
 		l.nextChar()
-		return TokRpar
-	case c == '[':
+		return MkToken(TokRpar, ")")
+ 	case c == '[':
 		l.nextChar()
-		return TokLsq
+		return MkToken(TokLsq, "")
 	case c == ']':
 		l.nextChar()
-		return TokRsq
+		return MkToken(TokRsq, "")
 	case c == '{':
 		l.nextChar()
-		return TokLbrace
+		return MkToken(TokLbrace, "")
 	case c == '}':
 		l.nextChar()
-		return TokRbrace
+		return MkToken(TokRbrace, "")
 	case c == ':':
 		l.nextChar()
-		return TokColon
+		return MkToken(TokColon, "")
 	case c == '=':
 		l.nextChar()
-		return TokAssign
+		return MkToken(TokAssign, "")
 	case c == ';':
 		l.nextChar()
-		return TokSemi
+		return MkToken(TokSemi, "")
 	case c == '>':
 		if l.nextChar() == '=' {
 			l.nextChar()
-			return TokGte
+			return MkToken(TokGte, "")
 		} else {
-			return TokGt
+			return MkToken(TokGt, "")
 		}
 	case c == '/':
 		if l.nextChar() == '/' {
@@ -141,12 +148,10 @@ func (l *Lexer) Next() Token {
 			l.skipComment()
 			return l.Next()
 		} else {
-			return TokDiv
+			return MkToken(TokDiv, "")
 		}
 	default:
-		l.Error =  fmt.Errorf("this is not quite working yet")
-		l.textValue = l.Error.Error()
-		return TokErr 
+		return MkTokenErr(fmt.Errorf("parse error: unknown character %#v", l.char()))
 	}
 }
 func isNum(c rune) bool {
@@ -174,40 +179,32 @@ func (l *Lexer) skipComment() {
 }
 
 func (l *Lexer) TokenizeString() Token {
-	l.textValue=""
+	txt := ""
 	for l.nextChar() != '"' {
-		l.textValue += string(l.char())
+		txt += string(l.char())
 	}
 	l.nextChar() // Move over closing quote
-	return TokString
+	return MkToken(TokString, txt)
 }
 
 func (l *Lexer) TokenizeIdent() Token {
-	l.textValue = ""
+	val := ""
 	for isAlpha(l.char()) || isNum(l.char()){
-		l.textValue += string(l.char())
+		val += string(l.char())
 		l.nextChar()
 	}
-	if kw, ok := keywords[l.textValue]; ok {
-		return kw
+	if kwKind, ok := keywords[val]; ok {
+		return MkToken(kwKind, val)
 	}
-	return TokIdent
+	return MkToken(TokIdent, val)
 }
 
 func (l *Lexer) TokenizeInt() Token {
 	//fmt.Println("Token int", l.i)
-	l.textValue = ""
+	val := ""
 	for isNum(l.char()) {
-		l.textValue = l.textValue + string(l.char())
+		val = val + string(l.char())
 		l.nextChar()
 	}
-	// TODO: parse text into num
-	var err error
-	l.numValue, err = strconv.Atoi(l.textValue)
-	if err != nil {
-		l.Error = fmt.Errorf("unable to convert Int token (%#v)", l.textValue)
-		l.textValue = l.Error.Error()
-		return TokErr
-	}
-	return TokInt
+	return MkToken(TokInt, val)
 }

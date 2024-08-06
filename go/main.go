@@ -24,25 +24,19 @@ func main() {
 		return 0;
 	}
 	`
-	_ = txt
+	lex := NewLexer(txt)
 
-	//lex := NewLexer(" 123x ")
-	//lex := NewLexer(" foo  bar")
-	lex := NewLexer("foo ")
-	//lex := NewLexer(txt)
-
+	fmt.Println("Tokens for an example program")
 	for i:=0; i<100; i++  {
-		//fmt.Println("TOP:", i);
 		tok := lex.Next()
-		fmt.Printf("  got: %v (%#v) \n", tok, lex.textValue)
-		if tok == TokEof {
-			fmt.Println("Ended successfully?")
+		fmt.Printf("  %v (%#v) \n", tok.Kind, tok.Text)
+		if tok.Kind == TokEof {
+			fmt.Println("Ended Successfully")
 			break
-		} else if tok == TokErr {
-			fmt.Printf("token error: %v\n", lex.Error)
+		} else if tok.Kind == TokErr {
+			fmt.Printf("token error: %v\n", tok.Error)
 			break
 		}
-		//fmt.Printf("%v\n",  tok)
 	}
 
 }

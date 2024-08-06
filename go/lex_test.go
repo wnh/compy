@@ -6,16 +6,17 @@ import (
 )
 
 func TestNextToken(t *testing.T) {
-	type testcase struct { n string; input string; tokens []Token }
+	type testcase struct { n string; input string; tokens []TokenKind }
 	tests := []testcase{
-		testcase{ n: "Integer", input: "123", tokens: []Token{TokInt} },
-		testcase{ n: "Trailing space", input: "123 ", tokens: []Token{TokInt} },
-		testcase{ n: "Leading space", input: "   123", tokens: []Token{TokInt} },
-		testcase{ n: "Leading+Trailing space", input: "   123", tokens: []Token{TokInt} },
-		testcase{ n: "Two Ints", input: "123 456", tokens: []Token{TokInt, TokInt} },
-		testcase{ n: "Ident", input: "foo", tokens: []Token{TokIdent} },
-		testcase{ n: "keyword and Ident", input: "fn foo", tokens: []Token{TokFn, TokIdent} },
-		testcase{ n: "Fn", input: "fn foo(a : int)", tokens: []Token{TokFn, TokIdent, TokLpar, TokIdent, TokColon, TokIdent, TokRpar} },
+		testcase{ n: "Integer", input: "123", tokens: []TokenKind{TokInt} },
+		testcase{ n: "Trailing space", input: "123 ", tokens: []TokenKind{TokInt} },
+		testcase{ n: "Leading space", input: "   123", tokens: []TokenKind{TokInt} },
+		testcase{ n: "Leading+Trailing space", input: "   123", tokens: []TokenKind{TokInt} },
+		testcase{ n: "Two Ints", input: "123 456", tokens: []TokenKind{TokInt, TokInt} },
+		testcase{ n: "Ident", input: "foo", tokens: []TokenKind{TokIdent} },
+		testcase{ n: "keyword and Ident", input: "fn foo", tokens: []TokenKind{TokFn, TokIdent} },
+		testcase{ n: "Fn", input: "fn foo(a : int)", tokens: []TokenKind{TokFn, TokIdent, TokLpar, TokIdent, TokColon, TokIdent, TokRpar} },
+		testcase{ n: "Two char tokens", input: "> = >= >==", tokens: []TokenKind{TokGt, TokAssign, TokGte, TokGte, TokAssign } },
 	}
 
 	for _, tc := range tests {
@@ -23,14 +24,15 @@ func TestNextToken(t *testing.T) {
 			l := NewLexer(tc.input)
 			for _, expected := range tc.tokens {
 				got := l.Next()
-				if got != expected {
+				if got.Kind != expected {
 					t.Errorf("Expected %v got %v", expected, got)
 				}
 			}
 			lastTok := l.Next()
-			if lastTok != TokEof {
+			if lastTok.Kind != TokEof {
 				t.Errorf("Expected EOF got %v", lastTok)
 			}
 		})
 	}
 }
+
