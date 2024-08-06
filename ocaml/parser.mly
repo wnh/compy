@@ -6,8 +6,8 @@ open Ast
 %token <int> INT
 %token <string> IDENT
 %token FUN LPAREN RPAREN RETURN LBRACE RBRACE SEMI PLUS MINUS MULT DIV
-%token EQ NEQ GT GTE LT LTE ASSIGN
-%token EOF 
+%token EQ NEQ GT GTE LT LTE ASSIGN IF ELSE
+%token EOF
 
 %left EQ NEQ GT GTE LT LTE
 %left PLUS MINUS
@@ -32,6 +32,8 @@ statement:
   | IDENT ASSIGN expr SEMI { Assign ($1, $3) }
   | RETURN expr SEMI { Return $2 }
   | expr SEMI { ExprStmt $1 }
+  | IF LPAREN cond=expr LPAREN then_blk=expr
+    { IfStmt { cond; then_blk; else_blk=EmptyExpr } }
   | SEMI { EmptyStmt }
 ;
 

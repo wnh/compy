@@ -26,6 +26,7 @@ rule token = parse
      | "<=" { LTE }
      | "return" { RETURN }
      | "fun" { FUN }
+     | "if" { IF }
      | ';' { SEMI }
      (* Make sure this is at the bottom *)
      | ident as i { IDENT i }

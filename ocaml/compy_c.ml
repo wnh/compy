@@ -97,6 +97,10 @@ module CodeGen = struct
 
     | ExprStmt s -> ignore (gen_expr ctx s)
     | EmptyStmt -> ignore ()
+    | IfStmt {cond; then_blk; else_blk} ->
+       let n = next_local ctx in
+       Printf.fprintf ctx.out "@then.%d\n" n;
+       Printf.fprintf ctx.out "@else.%d\n" n
 
   let gen_func_def ctx funcdef = match funcdef with
     | FuncDef {name; code} -> 
