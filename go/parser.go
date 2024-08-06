@@ -22,7 +22,7 @@ func (p *Parser) nextToken() {
 }
  
 func (p *Parser) expectv(expected TokenKind) (string, error) {
-	fmt.Printf("expectv: %v, %v, %v\n", p, expected, p.tok.Kind)
+	//fmt.Printf("expectv: %v, %v, %v\n", p, expected, p.tok.Kind)
 	if p.tok.Kind != expected {
 		return "", fmt.Errorf("parse error: expected: %v token, got %v", expected, p.tok)
 	}
@@ -41,7 +41,7 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 		return nil, err
 	}
 	modName, err := p.expectv(TokIdent)
-	fmt.Println("ParseModule():", modName, err)
+	//fmt.Println("ParseModule():", modName, err)
 	if err != nil {
 		return nil, err
 	}

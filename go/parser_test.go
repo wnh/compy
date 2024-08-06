@@ -15,10 +15,11 @@ func TestParseEmptyModule(t *testing.T) {
 	mods := []struct{m, n string}{
 		{"module main;", "main"},
 		{"module other;", "other"},
+		{"module more_stuff;", "more_stuff"},
 	}
 	for _, modTest := range mods {
 		p := NewParser(modTest.m)
-		t.Logf("%#v, %v, %v\n", p, p.tok, p.nextTok);
+		//t.Logf("%#v, %v, %v\n", p, p.tok, p.nextTok);
 		mod, err := p.ParseModule()
 		if err != nil || mod == nil {
 			t.Fail()

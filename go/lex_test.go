@@ -14,6 +14,8 @@ func TestNextToken(t *testing.T) {
 		testcase{ n: "Leading+Trailing space", input: "   123", tokens: []TokenKind{TokInt} },
 		testcase{ n: "Two Ints", input: "123 456", tokens: []TokenKind{TokInt, TokInt} },
 		testcase{ n: "Ident", input: "foo", tokens: []TokenKind{TokIdent} },
+		testcase{ n: "Ident with underscore", input: "foo_bar", tokens: []TokenKind{TokIdent} },
+		testcase{ n: "Ident with leading underscore", input: "_foobar", tokens: []TokenKind{TokIdent} },
 		testcase{ n: "keyword and Ident", input: "fn foo", tokens: []TokenKind{TokFn, TokIdent} },
 		testcase{ n: "Fn", input: "fn foo(a : int)", tokens: []TokenKind{TokFn, TokIdent, TokLpar, TokIdent, TokColon, TokIdent, TokRpar} },
 		testcase{ n: "Two char tokens", input: "> = >= >==", tokens: []TokenKind{TokGt, TokAssign, TokGte, TokGte, TokAssign } },

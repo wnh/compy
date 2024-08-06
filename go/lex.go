@@ -102,7 +102,7 @@ func (l *Lexer) Next() Token {
 	}
 	//fmt.Printf("char: %#v\n", c)
 	switch {
-	case isAlpha(c):
+	case isAlpha(c) || c == '_':
 		return l.TokenizeIdent()
 	case isNum(c):
 		return l.TokenizeInt()
@@ -189,7 +189,7 @@ func (l *Lexer) TokenizeString() Token {
 
 func (l *Lexer) TokenizeIdent() Token {
 	val := ""
-	for isAlpha(l.char()) || isNum(l.char()){
+	for isAlpha(l.char()) || isNum(l.char()) || l.char() == '_' {
 		val += string(l.char())
 		l.nextChar()
 	}
