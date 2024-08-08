@@ -102,6 +102,13 @@ func (p *Parser) ParseConstAssign() (*AstConstAssign, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := p.expect(TokColon); err != nil {
+		return nil, err
+	}
+	type_, err := p.ParseType()
+	if err != nil {
+		return nil, err
+	}
 	if err := p.expect(TokAssign); err != nil {
 		return nil, err
 	}
@@ -112,7 +119,7 @@ func (p *Parser) ParseConstAssign() (*AstConstAssign, error) {
 	if err := p.expect(TokSemi); err != nil {
 		return nil, err
 	}
-	return &AstConstAssign{Ident: constName, Value: valExpr}, nil
+	return &AstConstAssign{Ident: constName, Type: type_, Value: valExpr}, nil
 }
 
 func (p *Parser) ParseExpr() (AstExpr, error) {
@@ -142,4 +149,12 @@ func (p *Parser) ParseStringLitExpr() (*AstStringLitExpr, error) {
 		return nil, err
 	}
 	return &AstStringLitExpr{Value: text}, nil
+}
+
+func (p *Parser) ParseType() (*AstType, error) {
+	text, err := p.expectv(TokIdent);
+	if err != nil {
+		return nil, err
+	}
+	return &AstType{Name: text}, nil
 }

@@ -35,8 +35,8 @@ func TestParseModuleWithConsts(t *testing.T) {
 	txt := `
 		module test;
 		
-		let foo = 12;
-		let bar = "more";
+		let foo: int = 12;
+		let bar: string = "more";
 	`
 	p := NewParser(txt)
 	mod, err := p.ParseModule()
