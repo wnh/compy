@@ -24,7 +24,7 @@ func NewParser(input string, filename string) Parser {
 	lex := NewLexer(input)
 	t0 := lex.Next()
 	t1 := lex.Next()
-	p := Parser{lexer: lex, tok: t0, nextTok: t1, filename:filename}
+	p := Parser{lexer: lex, tok: t0, nextTok: t1, filename: filename}
 	return p
 }
 
@@ -152,7 +152,7 @@ func (p *Parser) ParseIntLitExpr() (*AstIntLitExpr, error) {
 }
 
 func (p *Parser) ParseStringLitExpr() (*AstStringLitExpr, error) {
-	text, err := p.expectv(TokString);
+	text, err := p.expectv(TokString)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (p *Parser) ParseStringLitExpr() (*AstStringLitExpr, error) {
 }
 
 func (p *Parser) ParseType() (*AstType, error) {
-	text, err := p.expectv(TokIdent);
+	text, err := p.expectv(TokIdent)
 	if err != nil {
 		return nil, err
 	}

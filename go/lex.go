@@ -7,17 +7,17 @@ import (
 )
 
 type Lexer struct {
-	input string
-	reader io.RuneReader
-	isEof bool
+	input   string
+	reader  io.RuneReader
+	isEof   bool
 	current rune
 
 	// Where we are in the RuneReader
 	line uint
-	col uint
+	col  uint
 	// Location of the token being currently parsed
 	startLine uint
-	startCol uint
+	startCol  uint
 }
 
 //go:generate stringer -type=TokenKind
@@ -25,11 +25,11 @@ type TokenKind int
 type Token struct {
 	Kind TokenKind
 	// the raw text for the toke, unless kind == TokErr then its the error text
-	// TODO(wnh): keep those separate 
-	Text string 
+	// TODO(wnh): keep those separate
+	Text  string
 	Error error
-	Line uint
-	Col uint
+	Line  uint
+	Col   uint
 }
 
 const (
@@ -65,11 +65,11 @@ func (l *Lexer) MkTokenErr(err error) Token {
 }
 
 var keywords = map[string]TokenKind{
-	"fn": TokFn,
-	"let": TokLet,
+	"fn":     TokFn,
+	"let":    TokLet,
 	"module": TokModule,
 	"return": TokReturn,
-	"if": TokIf,
+	"if":     TokIf,
 }
 
 func NewLexer(input string) Lexer {
@@ -79,7 +79,7 @@ func NewLexer(input string) Lexer {
 }
 
 func (l *Lexer) nextChar() rune {
-	r, runeLen, err :=  l.reader.ReadRune()
+	r, runeLen, err := l.reader.ReadRune()
 	_ = runeLen
 	//fmt.Printf("nextChar(): %v %#v %#v %v \n", string(r), runeLen, err, err == io.EOF)
 	if err == io.EOF {
@@ -89,7 +89,7 @@ func (l *Lexer) nextChar() rune {
 		return 0
 	}
 	if err != nil {
-		 panic("bad rune read")
+		panic("bad rune read")
 	}
 	if r == '\n' {
 		l.line++
@@ -131,7 +131,7 @@ func (l *Lexer) Next() Token {
 	case c == ')':
 		l.nextChar()
 		return l.MkToken(TokRpar, ")")
- 	case c == '[':
+	case c == '[':
 		l.nextChar()
 		return l.MkToken(TokLsq, "")
 	case c == ']':
@@ -175,7 +175,7 @@ func isNum(c rune) bool {
 	return c >= '0' && c <= '9'
 }
 func isAlpha(c rune) bool {
-	return (c >= 'a' && c <= 'z') || (c  >= 'A' && c <= 'Z')
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 func isWS(c rune) bool {
@@ -191,7 +191,8 @@ func (l *Lexer) skipWS() {
 }
 
 func (l *Lexer) skipComment() {
-	for l.nextChar() != '\n' {}
+	for l.nextChar() != '\n' {
+	}
 	l.nextChar() // Move over newline
 }
 

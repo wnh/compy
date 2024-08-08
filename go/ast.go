@@ -1,22 +1,21 @@
-
 package main
 
-type Node struct {}
+type Node struct{}
 
 type AstModule struct {
 	Node
-	Name string
+	Name       string
 	Statements []AstStatement
 }
 
 type AstStatement interface {
 	isStatement()
 }
-type AstExpr interface {}
+type AstExpr interface{}
 
 type AstConstAssign struct {
 	Ident string
-	Type *AstType
+	Type  *AstType
 	Value AstExpr
 }
 
