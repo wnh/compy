@@ -15,6 +15,7 @@ func (c *CodegenModule) Write(s string) error {
 	_, _ = c.Code.WriteString(" ")
 	return err
 }
+
 func (c *CodegenModule) Nl() {
 	_, _ = c.Code.WriteString("\n")
 }
@@ -24,17 +25,22 @@ func (c *CodegenModule) Writef(format string, a ...any) error {
 }
 
 func (n *AstModule) Codegen(cg *CodegenModule) {
+	cg.Writef("#include <stdio.h>\n")
 	cg.Writef("/* Module: %s */", n.Name)
 	cg.Nl()
 	for _, stmt := range n.Statements {
 		stmt.Codegen(cg)
 		cg.Nl()
 	}
+
+	cg.Nl()
+	cg.Writef("int main() { return 0; }")
 }
 
 func (n *AstConstAssign) Codegen(cg *CodegenModule) {
 	cg.Write("const")
 	n.Type.Codegen(cg)
+	cg.Write(n.Ident)
 	cg.Write("=")
 	n.Value.Codegen(cg)
 	cg.Write(";")

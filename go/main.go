@@ -3,7 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"os/exec"
+	"path"
+	"strings"
 )
 
 func main() {
@@ -13,6 +17,13 @@ func main() {
 		os.Exit(1)
 	}
 	filename := os.Args[1]
+	srcbase := path.Base(filename)
+	if !strings.HasSuffix(srcbase, ".b") {
+		fmt.Printf("Error: bad filename pattern '%s', need it to end in '.b'", filename)
+		os.Exit(1)
+	}
+	basename, _ := strings.CutSuffix(srcbase, ".b")
+
 	file, err := os.OpenFile(filename, os.O_RDONLY, 0644)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
@@ -38,5 +49,31 @@ func main() {
 	codeMod := &CodegenModule{}
 	mod.Codegen(codeMod)
 	fmt.Println("======= Module Output =======")
-	fmt.Println(codeMod.Code.String())
+	cCode := codeMod.Code.String()
+	fmt.Println(cCode)
+
+	f, err := os.CreateTemp("", basename+"_*.c")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("C source: %s\n", f.Name())
+	defer os.Remove(f.Name()) // clean up
+
+	if _, err := f.Write([]byte(cCode)); err != nil {
+		log.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		log.Fatal(err)
+	}
+	compileCmd := exec.Command("cc", "-o", "example", f.Name())
+	fmt.Println("xx", compileCmd)
+	ccOut, err := compileCmd.CombinedOutput()
+	fmt.Println("======= CC Output =======")
+	fmt.Println(string(ccOut))
+	if err != nil {
+		fmt.Printf("Error running CC: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("======== DONE ========")
 }
