@@ -23,13 +23,20 @@ func main() {
 		fmt.Printf("error reading file \"%s\": %v\n", filename, err)
 		os.Exit(1)
 	}
-	fmt.Println("File content:")
+	fmt.Println("======= Src File content =======")
 	fmt.Println(string(content))
+
 	parser := NewParser(string(content), filename)
 	mod, err := parser.ParseModule()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	fmt.Println("======= Ast =======")
 	fmt.Printf("%#v\n", mod)
+
+	codeMod := &CodegenModule{}
+	mod.Codegen(codeMod)
+	fmt.Println("======= Module Output =======")
+	fmt.Println(codeMod.Code.String())
 }

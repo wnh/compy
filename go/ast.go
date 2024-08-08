@@ -1,33 +1,52 @@
 package main
 
-type Node struct{}
+type Node interface {
+	isNode()
+	Codegen(thing *CodegenModule)
+}
+type node struct{}
 
 type AstModule struct {
-	Node
+	node
 	Name       string
 	Statements []AstStatement
 }
 
 type AstStatement interface {
+	Node
 	isStatement()
 }
-type AstExpr interface{}
+type AstExpr interface {
+	Node
+	isExpr()
+}
 
 type AstConstAssign struct {
+	node
 	Ident string
 	Type  *AstType
 	Value AstExpr
 }
 
-func (AstConstAssign) isStatement() {}
-
 type AstType struct {
+	node
 	Name string
 }
 
 type AstIntLitExpr struct {
+	node
 	Value int
 }
 type AstStringLitExpr struct {
+	node
 	Value string
 }
+
+func (n *AstConstAssign) isNode()   {}
+func (s *AstIntLitExpr) isNode()    {}
+func (s *AstStringLitExpr) isNode() {}
+
+func (s *AstConstAssign) isStatement() {}
+
+func (s *AstIntLitExpr) isExpr()    {}
+func (s *AstStringLitExpr) isExpr() {}
