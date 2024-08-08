@@ -2,41 +2,34 @@ package main
 
 import (
 	"fmt"
-	//"os"
+	"os"
+	"io"
 )
 
 func main() {
-	//fmt.Println("hey")
-	txt := `module main;
-
-	fn main(args: []string): int 
-        {
-		let thing: string = "hey  there";
-		let out = if len(args) >= 2 {
-			"too many args"
-		} else {
-			"something else"
-		}
-
-		{
-			let x: int = 123; // random block
-		}
-		return 0;
+	fmt.Printf("%#v\n", os.Args)
+	if len(os.Args) != 2 {
+		fmt.Println("usage: compy <filename>")
+		os.Exit(1)
 	}
-	`
-	lex := NewLexer(txt)
-
-	fmt.Println("Tokens for an example program")
-	for i:=0; i<100; i++  {
-		tok := lex.Next()
-		fmt.Printf("  %v (%#v) \n", tok.Kind, tok.Text)
-		if tok.Kind == TokEof {
-			fmt.Println("Ended Successfully")
-			break
-		} else if tok.Kind == TokErr {
-			fmt.Printf("token error: %v\n", tok.Error)
-			break
-		}
+	filename := os.Args[1]
+	file, err := os.OpenFile(filename, os.O_RDONLY, 0644)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		os.Exit(1)
 	}
-
+	content, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("error reading file \"%s\": %v\n", filename, err)
+		os.Exit(1)
+	}
+	fmt.Println("File content:")
+	fmt.Println(string(content))
+	parser := NewParser(string(content), filename)
+	mod, err := parser.ParseModule()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("%#v\n", mod)
 }

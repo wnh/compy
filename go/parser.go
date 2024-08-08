@@ -9,6 +9,8 @@ type Parser struct {
 	lexer   Lexer
 	tok     Token
 	nextTok Token
+
+	filename string
 }
 
 type ParseError struct {
@@ -18,11 +20,11 @@ type ParseError struct {
 	Col      uint
 }
 
-func NewParser(input string) Parser {
+func NewParser(input string, filename string) Parser {
 	lex := NewLexer(input)
 	t0 := lex.Next()
 	t1 := lex.Next()
-	p := Parser{lexer: lex, tok: t0, nextTok: t1}
+	p := Parser{lexer: lex, tok: t0, nextTok: t1, filename:filename}
 	return p
 }
 
@@ -59,9 +61,9 @@ func (p *Parser) parseErrorExp(expect TokenKind) error {
 func (p *Parser) parseErrorMsg(msg string) error {
 	return ParseError{
 		Msg:      msg,
-		Filename: "todo_file.b",
-		Line:     0,
-		Col:      0,
+		Filename: p.filename,
+		Line:     p.tok.Line,
+		Col:      p.tok.Col,
 	}
 }
 func (e ParseError) Error() string {

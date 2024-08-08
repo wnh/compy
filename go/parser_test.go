@@ -5,7 +5,7 @@ import (
 )
 
 func TestNewParser(t *testing.T) {
-	_ = NewParser("")
+	_ = NewParser("", "<filename>")
 }
 
 func TestParseEmptyModule(t *testing.T) {
@@ -16,7 +16,7 @@ func TestParseEmptyModule(t *testing.T) {
 		{"module more_stuff;", "more_stuff"},
 	}
 	for _, modTest := range mods {
-		p := NewParser(modTest.m)
+		p := NewParser(modTest.m, "<filename>")
 		//t.Logf("%#v, %v, %v\n", p, p.tok, p.nextTok);
 		mod, err := p.ParseModule()
 
@@ -38,7 +38,7 @@ func TestParseModuleWithConsts(t *testing.T) {
 		let foo: int = 12;
 		let bar: string = "more";
 	`
-	p := NewParser(txt)
+	p := NewParser(txt, "<filename>")
 	mod, err := p.ParseModule()
 	t.Logf("%v", err)
 	t.Logf("%+v", mod)
@@ -61,11 +61,10 @@ func TestParseFailures(t *testing.T) {
 	}
 	var p Parser
 	for _, mod := range badCases {
-		p = NewParser(mod);
+		p = NewParser(mod, "<filename")
 		_, err := p.ParseModule()
 		if err == nil {
 			t.Errorf("expected failure parsing: %#v", mod)
 		}
 	}
-
 }

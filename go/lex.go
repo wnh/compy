@@ -8,9 +8,16 @@ import (
 
 type Lexer struct {
 	input string
-	reader *strings.Reader
+	reader io.RuneReader
 	isEof bool
 	current rune
+
+	// Where we are in the RuneReader
+	line uint
+	col uint
+	// Location of the token being currently parsed
+	startLine uint
+	startCol uint
 }
 
 //go:generate stringer -type=TokenKind
@@ -21,6 +28,8 @@ type Token struct {
 	// TODO(wnh): keep those separate 
 	Text string 
 	Error error
+	Line uint
+	Col uint
 }
 
 const (
@@ -48,11 +57,11 @@ const (
 	TokDiv
 )
 
-func MkToken(kind TokenKind, text string) Token {
-	return Token{kind, text, nil}
+func (l *Lexer) MkToken(kind TokenKind, text string) Token {
+	return Token{kind, text, nil, l.startLine, l.startCol}
 }
-func MkTokenErr(err error) Token {
-	return Token{TokErr, "", err}
+func (l *Lexer) MkTokenErr(err error) Token {
+	return l.MkToken(TokErr, "")
 }
 
 var keywords = map[string]TokenKind{
@@ -64,7 +73,7 @@ var keywords = map[string]TokenKind{
 }
 
 func NewLexer(input string) Lexer {
-	l := Lexer{input: input, reader: strings.NewReader(input)}
+	l := Lexer{input: input, reader: strings.NewReader(input), line: 1, col: 0}
 	l.nextChar()
 	return l
 }
@@ -82,6 +91,12 @@ func (l *Lexer) nextChar() rune {
 	if err != nil {
 		 panic("bad rune read")
 	}
+	if r == '\n' {
+		l.line++
+		l.col = 0
+	} else {
+		l.col++
+	}
 	l.current = r
 	return r
 }
@@ -98,9 +113,11 @@ func (l *Lexer) Next() Token {
 		c = l.char()
 	}
 	if l.isEof {
-		return MkToken(TokEof, "")
+		return l.MkToken(TokEof, "")
 	}
-	//fmt.Printf("char: %#v\n", c)
+	l.startLine = l.line
+	l.startCol = l.col
+
 	switch {
 	case isAlpha(c) || c == '_':
 		return l.TokenizeIdent()
@@ -110,37 +127,37 @@ func (l *Lexer) Next() Token {
 		return l.TokenizeString()
 	case c == '(':
 		l.nextChar()
-		return MkToken(TokLpar, "(")
+		return l.MkToken(TokLpar, "(")
 	case c == ')':
 		l.nextChar()
-		return MkToken(TokRpar, ")")
+		return l.MkToken(TokRpar, ")")
  	case c == '[':
 		l.nextChar()
-		return MkToken(TokLsq, "")
+		return l.MkToken(TokLsq, "")
 	case c == ']':
 		l.nextChar()
-		return MkToken(TokRsq, "")
+		return l.MkToken(TokRsq, "")
 	case c == '{':
 		l.nextChar()
-		return MkToken(TokLbrace, "")
+		return l.MkToken(TokLbrace, "")
 	case c == '}':
 		l.nextChar()
-		return MkToken(TokRbrace, "")
+		return l.MkToken(TokRbrace, "")
 	case c == ':':
 		l.nextChar()
-		return MkToken(TokColon, "")
+		return l.MkToken(TokColon, "")
 	case c == '=':
 		l.nextChar()
-		return MkToken(TokAssign, "")
+		return l.MkToken(TokAssign, "")
 	case c == ';':
 		l.nextChar()
-		return MkToken(TokSemi, "")
+		return l.MkToken(TokSemi, "")
 	case c == '>':
 		if l.nextChar() == '=' {
 			l.nextChar()
-			return MkToken(TokGte, "")
+			return l.MkToken(TokGte, "")
 		} else {
-			return MkToken(TokGt, "")
+			return l.MkToken(TokGt, "")
 		}
 	case c == '/':
 		if l.nextChar() == '/' {
@@ -148,10 +165,10 @@ func (l *Lexer) Next() Token {
 			l.skipComment()
 			return l.Next()
 		} else {
-			return MkToken(TokDiv, "")
+			return l.MkToken(TokDiv, "")
 		}
 	default:
-		return MkTokenErr(fmt.Errorf("parse error: unknown character %#v", l.char()))
+		return l.MkTokenErr(fmt.Errorf("parse error: unknown character %#v", l.char()))
 	}
 }
 func isNum(c rune) bool {
@@ -184,7 +201,7 @@ func (l *Lexer) TokenizeString() Token {
 		txt += string(l.char())
 	}
 	l.nextChar() // Move over closing quote
-	return MkToken(TokString, txt)
+	return l.MkToken(TokString, txt)
 }
 
 func (l *Lexer) TokenizeIdent() Token {
@@ -194,9 +211,9 @@ func (l *Lexer) TokenizeIdent() Token {
 		l.nextChar()
 	}
 	if kwKind, ok := keywords[val]; ok {
-		return MkToken(kwKind, val)
+		return l.MkToken(kwKind, val)
 	}
-	return MkToken(TokIdent, val)
+	return l.MkToken(TokIdent, val)
 }
 
 func (l *Lexer) TokenizeInt() Token {
@@ -206,5 +223,5 @@ func (l *Lexer) TokenizeInt() Token {
 		val = val + string(l.char())
 		l.nextChar()
 	}
-	return MkToken(TokInt, val)
+	return l.MkToken(TokInt, val)
 }
