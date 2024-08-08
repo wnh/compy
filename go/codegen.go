@@ -24,8 +24,13 @@ func (c *CodegenModule) Writef(format string, a ...any) error {
 	return c.Write(fmt.Sprintf(format, a...))
 }
 
+func (c *CodegenModule) WriteRuntime() {
+	c.Write("typedef char* string;")
+	c.Nl()
+}
+
 func (n *AstModule) Codegen(cg *CodegenModule) {
-	cg.Writef("#include <stdio.h>\n")
+	cg.WriteRuntime()
 	cg.Writef("/* Module: %s */", n.Name)
 	cg.Nl()
 	for _, stmt := range n.Statements {

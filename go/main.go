@@ -57,6 +57,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	fmt.Println("======= Output =======")
 	fmt.Printf("C source: %s\n", f.Name())
 	defer os.Remove(f.Name()) // clean up
 
@@ -66,8 +67,8 @@ func main() {
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
-	compileCmd := exec.Command("cc", "-o", "example", f.Name())
-	fmt.Println("xx", compileCmd)
+	compileCmd := exec.Command("cc", "-o", basename, f.Name())
+	fmt.Println("Compile Command:", compileCmd)
 	ccOut, err := compileCmd.CombinedOutput()
 	fmt.Println("======= CC Output =======")
 	fmt.Println(string(ccOut))
