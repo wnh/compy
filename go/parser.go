@@ -34,7 +34,7 @@ func (p *Parser) nextToken() {
 func (p *Parser) expectv(expected TokenKind) (string, error) {
 	//fmt.Printf("expectv: %v, %v, %v\n", p, expected, p.tok.Kind)
 	if p.tok.Kind != expected {
-		return "", fmt.Errorf("parse error: expected: %v token, got %v", expected, p.tok)
+		return "", p.parseErrorExp(expected)
 	}
 	val := p.tok.Text
 	p.nextToken()
@@ -51,8 +51,14 @@ func (p *Parser) peekIs(expected TokenKind) bool {
 }
 
 func (p *Parser) parseError() error {
+	return p.parseErrorMsg(fmt.Sprintf("unexpected token: %v", p.tok.Kind))
+}
+func (p *Parser) parseErrorExp(expect TokenKind) error {
+	return p.parseErrorMsg(fmt.Sprintf("expected token: %v got: %v", expect, p.tok.Kind))
+}
+func (p *Parser) parseErrorMsg(msg string) error {
 	return ParseError{
-		Msg:      fmt.Sprintf("unexpected token: %v", p.tok.Kind),
+		Msg:      msg,
 		Filename: "todo_file.b",
 		Line:     0,
 		Col:      0,

@@ -52,3 +52,20 @@ func TestParseModuleWithConsts(t *testing.T) {
 		t.Fatal("wrong number of statements")
 	}
 }
+
+func TestParseFailures(t *testing.T) {
+	badCases := []string{
+		"",
+		"module foo; let a = 12;",
+		"module foo; let a: int = ",
+	}
+	var p Parser
+	for _, mod := range badCases {
+		p = NewParser(mod);
+		_, err := p.ParseModule()
+		if err == nil {
+			t.Errorf("expected failure parsing: %#v", mod)
+		}
+	}
+
+}
