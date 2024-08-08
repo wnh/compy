@@ -94,25 +94,25 @@ func (p *Parser) ParseStatement() (AstStatement, error) {
 	return nil, p.parseError()
 }
 
-func (p *Parser) ParseConstAssign() (AstConstAssign, error) {
+func (p *Parser) ParseConstAssign() (*AstConstAssign, error) {
 	if err := p.expect(TokLet); err != nil {
-		return AstConstAssign{}, err
+		return nil, err
 	}
 	constName, err := p.expectv(TokIdent)
 	if err != nil {
-		return AstConstAssign{}, err
+		return nil, err
 	}
 	if err := p.expect(TokAssign); err != nil {
-		return AstConstAssign{}, err
+		return nil, err
 	}
 	valExpr, err := p.ParseExpr()
 	if err != nil {
-		return AstConstAssign{}, err
+		return nil, err
 	}
 	if err := p.expect(TokSemi); err != nil {
-		return AstConstAssign{}, err
+		return nil, err
 	}
-	return AstConstAssign{Ident: constName, Value: valExpr}, nil
+	return &AstConstAssign{Ident: constName, Value: valExpr}, nil
 }
 
 func (p *Parser) ParseExpr() (AstExpr, error) {
@@ -124,22 +124,22 @@ func (p *Parser) ParseExpr() (AstExpr, error) {
 	return nil, p.parseError()
 }
 
-func (p *Parser) ParseIntLitExpr() (AstIntLitExpr, error) {
+func (p *Parser) ParseIntLitExpr() (*AstIntLitExpr, error) {
 	intText, err := p.expectv(TokInt)
 	if err != nil {
-		return AstIntLitExpr{}, err
+		return nil, err
 	}
 	intVal, err := strconv.Atoi(intText)
 	if err != nil {
-		return AstIntLitExpr{}, err
+		return nil, err
 	}
-	return AstIntLitExpr{Value: intVal}, nil
+	return &AstIntLitExpr{Value: intVal}, nil
 }
 
-func (p *Parser) ParseStringLitExpr() (AstStringLitExpr, error) {
+func (p *Parser) ParseStringLitExpr() (*AstStringLitExpr, error) {
 	text, err := p.expectv(TokString);
 	if err != nil {
-		return AstStringLitExpr{}, err
+		return nil, err
 	}
-	return AstStringLitExpr{Value: text}, nil
+	return &AstStringLitExpr{Value: text}, nil
 }

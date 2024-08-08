@@ -12,15 +12,16 @@ type AstModule struct {
 type AstStatement interface {
 	isStatement()
 }
+type AstExpr interface {}
 
 type AstConstAssign struct {
 	Ident string
 	Value AstExpr
 }
+
 func (AstConstAssign) isStatement() {}
 
 
-type AstExpr interface {}
 type AstIntLitExpr struct {
 	Value int
 }
