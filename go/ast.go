@@ -15,10 +15,10 @@ type AstModule struct {
 type AstStatement interface {
 	Node
 	isStatement()
+	ForwardDecl(thing *CodegenModule)
 }
 type AstExpr interface {
 	Node
-	isExpr()
 }
 
 type AstConstAssign struct {
@@ -26,6 +26,10 @@ type AstConstAssign struct {
 	Ident string
 	Type  *AstType
 	Value AstExpr
+}
+
+type AstIdent struct {
+	Name string
 }
 
 type AstType struct {
@@ -59,13 +63,22 @@ type AstParam struct {
 	Type *AstType
 }
 
+type AstFnCall struct {
+	Name string
+	Args []AstExpr
+}
+
 func (n *AstConstAssign) isNode()   {}
 func (s *AstIntLitExpr) isNode()    {}
 func (s *AstStringLitExpr) isNode() {}
 func (s *AstFnDecl) isNode()        {}
+func (s *AstFnCall) isNode()        {}
+func (s *AstIdent) isNode()         {}
 
 func (s *AstConstAssign) isStatement() {}
 func (s *AstFnDecl) isStatement()      {}
+func (s *AstFnCall) isStatement()      {}
 
 func (s *AstIntLitExpr) isExpr()    {}
 func (s *AstStringLitExpr) isExpr() {}
+func (s *AstIdent) isExpr()         {}

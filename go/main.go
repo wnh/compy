@@ -67,7 +67,7 @@ func main() {
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
-	compileCmd := exec.Command("cc", "-o", basename, f.Name())
+	compileCmd := exec.Command("cc", "-O0", "-g", "-o", basename, f.Name())
 	fmt.Println("Compile Command:", compileCmd)
 	ccOut, err := compileCmd.CombinedOutput()
 	fmt.Println("======= CC Output =======")

@@ -25,6 +25,7 @@ func (c *CodegenModule) Writef(format string, a ...any) error {
 }
 
 func (c *CodegenModule) WriteRuntime() {
+	c.Write("#include <stdio.h>\n")
 	c.Write("typedef char* string;")
 	c.Nl()
 }
@@ -32,6 +33,11 @@ func (c *CodegenModule) WriteRuntime() {
 func (n *AstModule) Codegen(cg *CodegenModule) {
 	cg.WriteRuntime()
 	cg.Writef("/* Module: %s */", n.Name)
+	cg.Nl()
+	for _, stmt := range n.Statements {
+		stmt.ForwardDecl(cg)
+		cg.Write(";\n")
+	}
 	cg.Nl()
 	for _, stmt := range n.Statements {
 		stmt.Codegen(cg)
@@ -47,8 +53,8 @@ func (n *AstConstAssign) Codegen(cg *CodegenModule) {
 	cg.Write(n.Ident)
 	cg.Write("=")
 	n.Value.Codegen(cg)
-	cg.Write(";")
 }
+func (n *AstConstAssign) ForwardDecl(cg *CodegenModule) {}
 
 func (n *AstType) Codegen(cg *CodegenModule) {
 	cg.Write(n.Name)
@@ -76,11 +82,40 @@ func (n *AstFnDecl) Codegen(cg *CodegenModule) {
 	cg.Write(")")
 	n.Body.Codegen(cg)
 }
+func (n *AstFnDecl) ForwardDecl(cg *CodegenModule) {
+	n.ReturnType.Codegen(cg)
+	cg.Write(n.Name + "(")
+	for i, p := range n.Params {
+		if i != 0 {
+			cg.Write(",")
+		}
+		p.Type.Codegen(cg)
+	}
+	cg.Write(")")
+}
 
 func (n *AstBlock) Codegen(cg *CodegenModule) {
 	cg.Write("{\n")
 	for _, s := range n.Body {
 		s.Codegen(cg)
+		cg.Write(";\n")
 	}
 	cg.Write("\n}")
+}
+
+func (n *AstFnCall) Codegen(cg *CodegenModule) {
+	cg.Write(n.Name + "(")
+	for i, arg := range n.Args {
+		if i != 0 {
+			cg.Write(",")
+		}
+		arg.Codegen(cg)
+	}
+	cg.Write(")")
+}
+
+func (n *AstFnCall) ForwardDecl(cg *CodegenModule) {}
+
+func (n *AstIdent) Codegen(cg *CodegenModule) {
+	cg.Write(n.Name)
 }

@@ -115,3 +115,45 @@ func TestParseFunction(t *testing.T) {
 		t.Fatal("wrong number of statements")
 	}
 }
+
+func TestParseFunctionCalls(t *testing.T) {
+	txt := `
+		module test;
+
+		fn main(): int {
+			let x: string = "thing";
+			println("more");
+		}
+	`
+	p := NewParser(txt, "<filename>")
+	mod, err := p.ParseModule()
+	t.Logf("ERR: %v", err)
+	t.Logf("Module: %+v", mod)
+	if err != nil || mod == nil {
+		t.Fatal()
+	}
+	if len(mod.Statements) != 1 {
+		t.Fatal("wrong number of statements")
+	}
+}
+
+func TestParseVarRefs(t *testing.T) {
+	txt := `
+		module test;
+
+		fn main(): int {
+			let x: string = "thing";
+			println("more", x);
+		}
+	`
+	p := NewParser(txt, "<filename>")
+	mod, err := p.ParseModule()
+	t.Logf("ERR: %v", err)
+	t.Logf("Module: %+v", mod)
+	if err != nil || mod == nil {
+		t.Fatal()
+	}
+	if len(mod.Statements) != 1 {
+		t.Fatal("wrong number of statements")
+	}
+}

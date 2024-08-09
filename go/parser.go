@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 )
+
+const DEBUG = false
 
 type Parser struct {
 	lexer   Lexer
@@ -54,6 +57,9 @@ func (p *Parser) peek() TokenKind {
 func (p *Parser) peekIs(expected TokenKind) bool {
 	return p.tok.Kind == expected
 }
+func (p *Parser) nextIs(expected TokenKind) bool {
+	return p.nextTok.Kind == expected
+}
 
 func (p *Parser) parseError() error {
 	return p.parseErrorMsg(fmt.Sprintf("unexpected token: %v", p.tok.Kind))
@@ -62,6 +68,9 @@ func (p *Parser) parseErrorExp(expect TokenKind) error {
 	return p.parseErrorMsg(fmt.Sprintf("expected token: %v got: %v", expect, p.tok.Kind))
 }
 func (p *Parser) parseErrorMsg(msg string) error {
+	if DEBUG {
+		debug.PrintStack()
+	}
 	return ParseError{
 		Msg:      msg,
 		Filename: p.filename,
@@ -94,7 +103,19 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 			return nil, err
 		}
 		mod.Statements = append(mod.Statements, st)
+
+		// We only need to grab a semi colon after variable
+		// and constant declarations, function decls don't
+		// need a semicolon.
+		// Im sure there must be a better way to do this
+		switch st.(type) {
+		case *AstConstAssign:
+			if err := p.expect(TokSemi); err != nil {
+				return nil, err
+			}
+		}
 	}
+
 	return &mod, nil
 }
 
@@ -104,10 +125,40 @@ func (p *Parser) ParseStatement() (AstStatement, error) {
 		return p.ParseConstAssign()
 	case TokFn:
 		return p.ParseFnDecl()
+	case TokIdent:
+		return p.ParseFnCall()
 	}
 	return nil, p.parseError()
 }
 
+func (p *Parser) ParseFnCall() (*AstFnCall, error) {
+	fnName, err := p.expectv(TokIdent)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokLpar); err != nil {
+		return nil, err
+	}
+	args := []AstExpr{}
+	for {
+		if p.peekIs(TokRpar) {
+			p.nextToken()
+			break
+		} else {
+			arg, err := p.ParseExpr()
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, arg)
+			// Consume the comma if it is there
+			if p.peekIs(TokComma) {
+				p.nextToken()
+			}
+		}
+	}
+	return &AstFnCall{fnName, args}, nil
+
+}
 func (p *Parser) ParseConstAssign() (*AstConstAssign, error) {
 	if err := p.expect(TokLet); err != nil {
 		return nil, err
@@ -130,19 +181,26 @@ func (p *Parser) ParseConstAssign() (*AstConstAssign, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.expect(TokSemi); err != nil {
-		return nil, err
-	}
 	return &AstConstAssign{Ident: constName, Type: type_, Value: valExpr}, nil
 }
 
 func (p *Parser) ParseExpr() (AstExpr, error) {
-	if p.peekIs(TokInt) {
+	if p.peekIs(TokIdent) {
+		return p.ParseVarRef()
+	} else if p.peekIs(TokInt) {
 		return p.ParseIntLitExpr()
 	} else if p.peekIs(TokString) {
 		return p.ParseStringLitExpr()
 	}
 	return nil, p.parseError()
+}
+
+func (p *Parser) ParseVarRef() (*AstIdent, error) {
+	name, err := p.expectv(TokIdent)
+	if err != nil {
+		return nil, err
+	}
+	return &AstIdent{name}, nil
 }
 
 func (p *Parser) ParseIntLitExpr() (*AstIntLitExpr, error) {
@@ -241,6 +299,9 @@ func (p *Parser) ParseBlock() (*AstBlock, error) {
 			return nil, err
 		}
 		stmts = append(stmts, st)
+		if err := p.expect(TokSemi); err != nil {
+			return nil, err
+		}
 	}
 	return &AstBlock{stmts}, nil
 }
