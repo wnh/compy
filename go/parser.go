@@ -86,7 +86,7 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 	if err := p.expect(TokModule); err != nil {
 		return nil, err
 	}
-	modName, err := p.expectv(TokIdent)
+	modName, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (p *Parser) ParseStatement() (AstStatement, error) {
 }
 
 func (p *Parser) ParseFnCall() (*AstFnCall, error) {
-	fnName, err := p.expectv(TokIdent)
+	fnName, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
@@ -196,11 +196,11 @@ func (p *Parser) ParseExpr() (AstExpr, error) {
 }
 
 func (p *Parser) ParseVarRef() (*AstIdent, error) {
-	name, err := p.expectv(TokIdent)
+	name, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
-	return &AstIdent{name}, nil
+	return name, nil
 }
 
 func (p *Parser) ParseIntLitExpr() (*AstIntLitExpr, error) {
@@ -224,7 +224,7 @@ func (p *Parser) ParseStringLitExpr() (*AstStringLitExpr, error) {
 }
 
 func (p *Parser) ParseType() (*AstType, error) {
-	text, err := p.expectv(TokIdent)
+	text, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (p *Parser) ParseFnDecl() (*AstFnDecl, error) {
 	if err := p.expect(TokFn); err != nil {
 		return nil, err
 	}
-	fnName, err := p.expectv(TokIdent)
+	fnName, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func (p *Parser) ParseBlock() (*AstBlock, error) {
 }
 
 func (p *Parser) ParseParam() (*AstParam, error) {
-	text, err := p.expectv(TokIdent)
+	text, err := p.ParseIdent()
 	if err != nil {
 		return nil, err
 	}
@@ -319,4 +319,12 @@ func (p *Parser) ParseParam() (*AstParam, error) {
 		return nil, err
 	}
 	return &AstParam{Name: text, Type: type_}, nil
+}
+
+func (p *Parser) ParseIdent() (*AstIdent, error) {
+	text, err := p.expectv(TokIdent)
+	if err != nil {
+		return nil, err
+	}
+	return &AstIdent{Name: text}, nil
 }

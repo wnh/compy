@@ -57,7 +57,7 @@ func (n *AstConstAssign) Codegen(cg *CodegenModule) {
 func (n *AstConstAssign) ForwardDecl(cg *CodegenModule) {}
 
 func (n *AstType) Codegen(cg *CodegenModule) {
-	cg.Write(n.Name)
+	cg.Write(n.Name.Name)
 }
 
 func (n *AstIntLitExpr) Codegen(cg *CodegenModule) {
@@ -70,11 +70,11 @@ func (n *AstStringLitExpr) Codegen(cg *CodegenModule) {
 
 func (n *AstFnDecl) Codegen(cg *CodegenModule) {
 	n.ReturnType.Codegen(cg)
-	cg.Write(n.Name + "(")
+	cg.Write(n.Name.Name + "(")
 	paramCount := len(n.Params)
 	for i, p := range n.Params {
 		p.Type.Codegen(cg)
-		cg.Write(p.Name)
+		cg.Write(p.Name.Name)
 		if i != paramCount-1 {
 			cg.Write(",")
 		}
@@ -84,7 +84,7 @@ func (n *AstFnDecl) Codegen(cg *CodegenModule) {
 }
 func (n *AstFnDecl) ForwardDecl(cg *CodegenModule) {
 	n.ReturnType.Codegen(cg)
-	cg.Write(n.Name + "(")
+	cg.Write(n.Name.Name + "(")
 	for i, p := range n.Params {
 		if i != 0 {
 			cg.Write(",")
@@ -104,7 +104,7 @@ func (n *AstBlock) Codegen(cg *CodegenModule) {
 }
 
 func (n *AstFnCall) Codegen(cg *CodegenModule) {
-	cg.Write(n.Name + "(")
+	cg.Write(n.Name.Name + "(")
 	for i, arg := range n.Args {
 		if i != 0 {
 			cg.Write(",")

@@ -25,7 +25,7 @@ func TestParseEmptyModule(t *testing.T) {
 		if err != nil || mod == nil {
 			t.Fatal()
 		}
-		if mod.Name != modTest.n {
+		if mod.Name.Name != modTest.n {
 			t.Errorf("bad module name: expected %#v got %#v", modTest.n, mod.Name)
 		}
 	}
@@ -45,7 +45,7 @@ func TestParseModuleWithConsts(t *testing.T) {
 	if err != nil || mod == nil {
 		t.Fatal()
 	}
-	if mod.Name != "test" {
+	if mod.Name.Name != "test" {
 		t.Errorf("bad module name: expected %#v got %#v", "test", mod.Name)
 	}
 	if len(mod.Statements) != 2 {
@@ -85,9 +85,6 @@ func TestParseEmptyFunction(t *testing.T) {
 	if err != nil || mod == nil {
 		t.Fatal()
 	}
-	if mod.Name != "test" {
-		t.Errorf("bad module name: expected %#v got %#v", "test", mod.Name)
-	}
 	if len(mod.Statements) != 4 {
 		t.Fatal("wrong number of statements")
 	}
@@ -107,9 +104,6 @@ func TestParseFunction(t *testing.T) {
 	t.Logf("Module: %+v", mod)
 	if err != nil || mod == nil {
 		t.Fatal()
-	}
-	if mod.Name != "test" {
-		t.Errorf("bad module name: expected %#v got %#v", "test", mod.Name)
 	}
 	if len(mod.Statements) != 1 {
 		t.Fatal("wrong number of statements")

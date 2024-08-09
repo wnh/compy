@@ -8,7 +8,7 @@ type node struct{}
 
 type AstModule struct {
 	node
-	Name       string
+	Name       *AstIdent
 	Statements []AstStatement
 }
 
@@ -34,7 +34,7 @@ type AstIdent struct {
 
 type AstType struct {
 	node
-	Name string
+	Name *AstIdent
 }
 
 type AstIntLitExpr struct {
@@ -48,7 +48,7 @@ type AstStringLitExpr struct {
 
 type AstFnDecl struct {
 	node
-	Name       string
+	Name       *AstIdent
 	ReturnType *AstType
 	Params     []*AstParam // Obviously not
 	Body       *AstBlock
@@ -59,12 +59,12 @@ type AstBlock struct {
 }
 
 type AstParam struct {
-	Name string
+	Name *AstIdent
 	Type *AstType
 }
 
 type AstFnCall struct {
-	Name string
+	Name *AstIdent
 	Args []AstExpr
 }
 
