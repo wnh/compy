@@ -39,7 +39,6 @@ func (n *AstModule) Codegen(cg *CodegenModule) {
 	}
 
 	cg.Nl()
-	cg.Writef("int main() { return 0; }")
 }
 
 func (n *AstConstAssign) Codegen(cg *CodegenModule) {
@@ -61,4 +60,19 @@ func (n *AstIntLitExpr) Codegen(cg *CodegenModule) {
 
 func (n *AstStringLitExpr) Codegen(cg *CodegenModule) {
 	cg.Writef("\"%s\"", n.Value)
+}
+
+func (n *AstFnDecl) Codegen(cg *CodegenModule) {
+	n.ReturnType.Codegen(cg)
+	cg.Write(n.Name + "(")
+	paramCount := len(n.Params)
+	for i, p := range n.Params {
+		p.Type.Codegen(cg)
+		cg.Write(p.Name)
+		if i != paramCount-1 {
+			cg.Write(",")
+		}
+	}
+	cg.Write(")")
+	cg.Write("{\n}")
 }

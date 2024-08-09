@@ -42,11 +42,25 @@ type AstStringLitExpr struct {
 	Value string
 }
 
+type AstFnDecl struct {
+	node
+	Name       string
+	ReturnType *AstType
+	Params     []*AstParam // Obviously not
+	Body       []AstStatement
+}
+type AstParam struct {
+	Name string
+	Type *AstType
+}
+
 func (n *AstConstAssign) isNode()   {}
 func (s *AstIntLitExpr) isNode()    {}
 func (s *AstStringLitExpr) isNode() {}
+func (s *AstFnDecl) isNode()        {}
 
 func (s *AstConstAssign) isStatement() {}
+func (s *AstFnDecl) isStatement()      {}
 
 func (s *AstIntLitExpr) isExpr()    {}
 func (s *AstStringLitExpr) isExpr() {}

@@ -68,3 +68,27 @@ func TestParseFailures(t *testing.T) {
 		}
 	}
 }
+
+func TestParseFunction(t *testing.T) {
+	txt := `
+		module test;
+
+		fn main(): int {}
+		fn bar(arg: string): int {}
+		fn baz(arg: string,): int {}
+		fn more(arg: string, another: int): string {}
+	`
+	p := NewParser(txt, "<filename>")
+	mod, err := p.ParseModule()
+	t.Logf("ERR: %v", err)
+	t.Logf("Module: %+v", mod)
+	if err != nil || mod == nil {
+		t.Fatal()
+	}
+	if mod.Name != "test" {
+		t.Errorf("bad module name: expected %#v got %#v", "test", mod.Name)
+	}
+	if len(mod.Statements) != 4 {
+		t.Fatal("wrong number of statements")
+	}
+}

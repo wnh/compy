@@ -49,6 +49,7 @@ const (
 	TokAssign
 	TokString
 	TokSemi
+	TokComma
 	TokModule
 	TokGte
 	TokGt
@@ -152,6 +153,9 @@ func (l *Lexer) Next() Token {
 	case c == ';':
 		l.nextChar()
 		return l.MkToken(TokSemi, "")
+	case c == ',':
+		l.nextChar()
+		return l.MkToken(TokComma, "")
 	case c == '>':
 		if l.nextChar() == '=' {
 			l.nextChar()

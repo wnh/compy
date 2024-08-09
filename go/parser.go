@@ -48,6 +48,9 @@ func (p *Parser) expect(expected TokenKind) error {
 	return err
 }
 
+func (p *Parser) peek() TokenKind {
+	return p.tok.Kind
+}
 func (p *Parser) peekIs(expected TokenKind) bool {
 	return p.tok.Kind == expected
 }
@@ -96,8 +99,12 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 }
 
 func (p *Parser) ParseStatement() (AstStatement, error) {
-	if p.peekIs(TokLet) {
+	fmt.Println("ParseStatement:", p.peek())
+	switch p.peek() {
+	case TokLet:
 		return p.ParseConstAssign()
+	case TokFn:
+		return p.ParseFnDecl()
 	}
 	return nil, p.parseError()
 }
@@ -165,4 +172,77 @@ func (p *Parser) ParseType() (*AstType, error) {
 		return nil, err
 	}
 	return &AstType{Name: text}, nil
+}
+
+func (p *Parser) ParseFnDecl() (*AstFnDecl, error) {
+	if err := p.expect(TokFn); err != nil {
+		return nil, err
+	}
+	fnName, err := p.expectv(TokIdent)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokLpar); err != nil {
+		return nil, err
+	}
+	params := []*AstParam{}
+	for {
+		if p.peekIs(TokRpar) {
+			break
+		} else if p.peekIs(TokIdent) {
+			param, err := p.ParseParam()
+			if err != nil {
+				return nil, err
+			}
+			params = append(params, param)
+			// Consume the comma if it is there
+			if p.peekIs(TokComma) {
+				p.nextToken()
+			}
+		} else {
+			fmt.Println(p.peek())
+			return nil, p.parseError()
+		}
+	}
+	//if i == 99 {
+	//	panic("blew the loop")
+	//}
+	if err := p.expect(TokRpar); err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokColon); err != nil {
+		return nil, err
+	}
+	returnType, err := p.ParseType()
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokLbrace); err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokRbrace); err != nil {
+		return nil, err
+	}
+	ret := AstFnDecl{
+		Name:       fnName,
+		ReturnType: returnType,
+		Params:     params,
+		Body:       []AstStatement{},
+	}
+	return &ret, nil
+}
+
+func (p *Parser) ParseParam() (*AstParam, error) {
+	text, err := p.expectv(TokIdent)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.expect(TokColon); err != nil {
+		return nil, err
+	}
+	type_, err := p.ParseType()
+	if err != nil {
+		return nil, err
+	}
+	return &AstParam{Name: text, Type: type_}, nil
 }
