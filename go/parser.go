@@ -99,7 +99,6 @@ func (p *Parser) ParseModule() (*AstModule, error) {
 }
 
 func (p *Parser) ParseStatement() (AstStatement, error) {
-	fmt.Println("ParseStatement:", p.peek())
 	switch p.peek() {
 	case TokLet:
 		return p.ParseConstAssign()
