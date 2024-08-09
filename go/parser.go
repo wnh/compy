@@ -203,9 +203,6 @@ func (p *Parser) ParseFnDecl() (*AstFnDecl, error) {
 			return nil, p.parseError()
 		}
 	}
-	//if i == 99 {
-	//	panic("blew the loop")
-	//}
 	if err := p.expect(TokRpar); err != nil {
 		return nil, err
 	}
@@ -216,19 +213,36 @@ func (p *Parser) ParseFnDecl() (*AstFnDecl, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.expect(TokLbrace); err != nil {
-		return nil, err
-	}
-	if err := p.expect(TokRbrace); err != nil {
+	block, err := p.ParseBlock()
+	if err != nil {
 		return nil, err
 	}
 	ret := AstFnDecl{
 		Name:       fnName,
 		ReturnType: returnType,
 		Params:     params,
-		Body:       []AstStatement{},
+		Body:       block,
 	}
 	return &ret, nil
+}
+
+func (p *Parser) ParseBlock() (*AstBlock, error) {
+	if err := p.expect(TokLbrace); err != nil {
+		return nil, err
+	}
+	stmts := []AstStatement{}
+	for {
+		if p.peekIs(TokRbrace) {
+			p.nextToken()
+			break
+		}
+		st, err := p.ParseStatement()
+		if err != nil {
+			return nil, err
+		}
+		stmts = append(stmts, st)
+	}
+	return &AstBlock{stmts}, nil
 }
 
 func (p *Parser) ParseParam() (*AstParam, error) {

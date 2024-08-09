@@ -47,8 +47,13 @@ type AstFnDecl struct {
 	Name       string
 	ReturnType *AstType
 	Params     []*AstParam // Obviously not
-	Body       []AstStatement
+	Body       *AstBlock
 }
+
+type AstBlock struct {
+	Body []AstStatement
+}
+
 type AstParam struct {
 	Name string
 	Type *AstType

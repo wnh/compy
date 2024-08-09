@@ -74,5 +74,13 @@ func (n *AstFnDecl) Codegen(cg *CodegenModule) {
 		}
 	}
 	cg.Write(")")
-	cg.Write("{\n}")
+	n.Body.Codegen(cg)
+}
+
+func (n *AstBlock) Codegen(cg *CodegenModule) {
+	cg.Write("{\n")
+	for _, s := range n.Body {
+		s.Codegen(cg)
+	}
+	cg.Write("\n}")
 }
